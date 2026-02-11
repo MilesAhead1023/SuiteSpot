@@ -152,7 +152,7 @@ void SuiteSpot::UpdateTrainingPackList() {
 
 BAKKESMOD_PLUGIN(SuiteSpot, "SuiteSpot", plugin_version, PLUGINTYPE_FREEPLAY)
 
-shared_ptr<CVarManagerWrapper> _globalCvarManager;
+std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 
 float SuiteSpot::ConvertMenuPercentToDecimal(float menuValue) {
     if (!std::isfinite(menuValue)) {

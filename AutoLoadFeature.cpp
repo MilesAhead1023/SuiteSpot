@@ -48,7 +48,7 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
             // Verify the map code exists in the list
             auto it = std::find_if(freeplayMaps.begin(), freeplayMaps.end(),
                 [&](const MapEntry& e) { return e.code == currentFreeplayCode; });
-            if (it != maps.end()) {
+            if (it != freeplayMaps.end()) {
                 safeExecute(delayFreeplaySec, "load_freeplay " + currentFreeplayCode);
                 mapLoadDelay = delayFreeplaySec;
                 LOG("SuiteSpot: [OK] Loading freeplay map: {}", it->name);
@@ -76,7 +76,7 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
             // Try to find name in cache for logging, but don't require it
             auto it = std::find_if(trainingPacks.begin(), trainingPacks.end(),
                 [&](const TrainingEntry& e) { return e.code == targetCode; });
-            if (it != training.end()) {
+            if (it != trainingPacks.end()) {
                 nameToLoad = it->name;
             } else {
                 nameToLoad = targetCode; // Use code as name if not in cache
@@ -100,7 +100,7 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
                     [&](const TrainingEntry& e) { return e.code == fallbackCode; });
                 
                 codeToLoad = fallbackCode;
-                nameToLoad = (it != training.end()) ? it->name : "Quick Pick Fallback";
+                nameToLoad = (it != trainingPacks.end()) ? it->name : "Quick Pick Fallback";
                 LOG("SuiteSpot: Selected pack missing, falling back to first Quick Pick: {}", nameToLoad);
             }
         }
@@ -125,7 +125,7 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
             // Verify the workshop map exists in the list
             auto it = std::find_if(workshopMaps.begin(), workshopMaps.end(),
                 [&](const WorkshopEntry& e) { return e.filePath == currentWorkshopPath; });
-            if (it != workshop.end()) {
+            if (it != workshopMaps.end()) {
                 safeExecute(delayWorkshopSec, "load_workshop \"" + currentWorkshopPath + "\"");
                 mapLoadDelay = delayWorkshopSec;
                 LOG("SuiteSpot: [OK] Loading workshop map: {}", it->name);

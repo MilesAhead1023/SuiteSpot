@@ -304,7 +304,8 @@ void TrainingPackUI::Render() {
     }
 
     // Detect if user is searching by code (contains digits)
-    int activeColumnCount = ShouldShowCodeColumn() ? 6 : 5;
+    bool showCodeColumn = ShouldShowCodeColumn();
+    int activeColumnCount = showCodeColumn ? 6 : 5;
 
     // Display filtered count
     ImGui::Text("Showing %d of %d packs", (int)filteredPacks.size(), packCount);
@@ -510,6 +511,9 @@ void TrainingPackUI::Render() {
                             p->cvarManager->executeCommand("load_training " + code);
                             LOG("SuiteSpot: Loading training pack from browser: " + name);
                         }, 0.0f);
+                        if (plugin_->cvarManager) {
+                            plugin_->cvarManager->executeCommand("togglemenu settings");
+                        }
                     }
                 }
                 ImGui::EndPopup();
@@ -911,4 +915,8 @@ void TrainingPackUI::LoadPackImmediately(const std::string& packCode) {
 
     browserStatus.ShowSuccess("Loading: " + packName, 2.0f,
         UI::StatusMessage::DisplayMode::TimerWithFade);
+
+    if (plugin_->cvarManager) {
+        plugin_->cvarManager->executeCommand("togglemenu settings");
+    }
 }
