@@ -304,14 +304,7 @@ void TrainingPackUI::Render() {
     }
 
     // Detect if user is searching by code (contains digits)
-    bool showCodeColumn = false;
-    for (size_t i = 0; i < strlen(packSearchText); i++) {
-        if (std::isdigit(static_cast<unsigned char>(packSearchText[i]))) {
-            showCodeColumn = true;
-            break;
-        }
-    }
-    int activeColumnCount = showCodeColumn ? 6 : 5;
+    int activeColumnCount = ShouldShowCodeColumn() ? 6 : 5;
 
     // Display filtered count
     ImGui::Text("Showing %d of %d packs", (int)filteredPacks.size(), packCount);
@@ -375,9 +368,10 @@ void TrainingPackUI::Render() {
     float currentWindowWidth = ImGui::GetWindowContentRegionWidth();
     bool windowResized = std::abs(currentWindowWidth - lastWindowWidth) > 50.0f;
 
-    if (!columnWidthsInitialized || windowResized) {
+    if (!columnWidthsInitialized || windowResized || columnWidthsDirty) {
         CalculateOptimalColumnWidths();
         columnWidthsInitialized = true;
+        columnWidthsDirty = false;
         lastWindowWidth = currentWindowWidth;
     }
 
@@ -453,7 +447,16 @@ void TrainingPackUI::Render() {
             if (!pack.videoUrl.empty()) {
                 bool clicked = false;
                 if (youtubeIcon && youtubeIcon->IsLoadedForImGui()) {
-                    if (ImGui::ImageButton(youtubeIcon->GetImGuiTex(), ImVec2(ImGui::GetFrameHeight(), ImGui::GetFrameHeight()))) {
+                    // Use Image with InvisibleButton overlay to remove border
+                    // Use text line height instead of frame height for tighter fit
+                    float iconSize = ImGui::GetTextLineHeight();
+                    ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+
+                    ImGui::Image(youtubeIcon->GetImGuiTex(), ImVec2(iconSize, iconSize));
+
+                    // Overlay invisible button for click detection (form-fit to icon)
+                    ImGui::SetCursorScreenPos(cursorPos);
+                    if (ImGui::InvisibleButton("##youtube", ImVec2(iconSize, iconSize))) {
                         clicked = true;
                     }
                 } else {
@@ -468,8 +471,8 @@ void TrainingPackUI::Render() {
                 if (ImGui::IsItemHovered()) ImGui::SetTooltip("Watch Preview");
                 ImGui::SameLine();
             } else {
-                // Indent to align with packs that have buttons (approximate width of ArrowButton + Spacing)
-                ImGui::Dummy(ImVec2(ImGui::GetFrameHeight(), 0)); 
+                // Indent to align with packs that have buttons (approximate width of button + Spacing)
+                ImGui::Dummy(ImVec2(ImGui::GetTextLineHeight(), 0));
                 ImGui::SameLine();
             }
 
@@ -770,26 +773,42 @@ void TrainingPackUI::RenderCustomPackForm() {
     }
 }
 
-void TrainingPackUI::CalculateOptimalColumnWidths() {
-    // Dynamic proportional widths based on full window content width
-    // Use GetWindowContentRegionWidth() instead of GetContentRegionAvail().x
-    // to get the full width regardless of cursor position
-    float availWidth = ImGui::GetWindowContentRegionWidth();
+bool TrainingPackUI::ShouldShowCodeColumn() const {
+    for (size_t i = 0; packSearchText[i] != '\0'; i++) {
+        if (std::isdigit(static_cast<unsigned char>(packSearchText[i]))) {
+            return true;
+        }
+    }
+    return false;
+}
 
-    // Column proportions: Name (45%), Difficulty (25%), Shots (10%), Likes (10%), Plays (10%)
-    columnWidths.resize(5);
-    columnWidths[0] = availWidth * 0.45f;  // Name
-    columnWidths[1] = availWidth * 0.25f;  // Difficulty
-    columnWidths[2] = availWidth * 0.10f;  // Shots
-    columnWidths[3] = availWidth * 0.10f;  // Likes
-    columnWidths[4] = availWidth * 0.10f;  // Plays
+void TrainingPackUI::CalculateOptimalColumnWidths() {
+    float availWidth = ImGui::GetWindowContentRegionWidth();
+    int columnCount = ShouldShowCodeColumn() ? 6 : 5;
+    columnWidths.assign(columnCount, 0.0f);
+
+    if (ShouldShowCodeColumn()) {
+        // Name (35%), Code (15%), Difficulty (20%), Shots (10%), Likes (10%), Plays (10%)
+        columnWidths[0] = availWidth * 0.35f;
+        columnWidths[1] = availWidth * 0.15f;
+        columnWidths[2] = availWidth * 0.20f;
+        columnWidths[3] = availWidth * 0.10f;
+        columnWidths[4] = availWidth * 0.10f;
+        columnWidths[5] = availWidth * 0.10f;
+    } else {
+        // Name (45%), Difficulty (25%), Shots (10%), Likes (10%), Plays (10%)
+        columnWidths[0] = availWidth * 0.45f;
+        columnWidths[1] = availWidth * 0.25f;
+        columnWidths[2] = availWidth * 0.10f;
+        columnWidths[3] = availWidth * 0.10f;
+        columnWidths[4] = availWidth * 0.10f;
+    }
 
     // Apply minimum widths to ensure readability
-    if (columnWidths[0] < 150.0f) columnWidths[0] = 150.0f;
-    if (columnWidths[1] < 100.0f) columnWidths[1] = 100.0f;
-    if (columnWidths[2] < 60.0f) columnWidths[2] = 60.0f;
-    if (columnWidths[3] < 60.0f) columnWidths[3] = 60.0f;
-    if (columnWidths[4] < 60.0f) columnWidths[4] = 60.0f;
+    for (int i = 0; i < columnCount; i++) {
+        if (i == 0 && columnWidths[i] < 150.0f) columnWidths[i] = 150.0f;
+        else if (columnWidths[i] < 60.0f) columnWidths[i] = 60.0f;
+    }
 }
 
 std::string TrainingPackUI::GetMenuName() {

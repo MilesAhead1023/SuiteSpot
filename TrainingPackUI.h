@@ -71,6 +71,8 @@ public:
     void SetOpen(bool open);
 
 private:
+    // Helper: Check if code column should be shown (search contains digits)
+    bool ShouldShowCodeColumn() const;
     SuiteSpot* plugin_;
     bool isWindowOpen_ = false;
     bool needsFocusOnNextRender_ = false;  // Bring to front when first opened

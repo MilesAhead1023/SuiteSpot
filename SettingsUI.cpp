@@ -290,6 +290,21 @@ void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue) {
     }
     
     ImGui::Columns(1); // Reset
+    ImGui::Spacing();
+
+    bool gameSpeedFixEnabled = plugin_->settingsSync
+        ? plugin_->settingsSync->IsTrainingGameSpeedFixEnabled()
+        : true;
+    if (UI::Helpers::CheckboxWithCVar(
+        "Fix Training Game Speed",
+        gameSpeedFixEnabled,
+        "suitespot_fix_training_gamespeed",
+        plugin_->cvarManager,
+        plugin_->gameWrapper,
+        "Sync in-game training speed with sv_soccar_gamespeed in training playlists."
+    )) {
+        LOG("Fix Training Game Speed toggled to {}", gameSpeedFixEnabled ? "ON" : "OFF");
+    }
 }
 
 void SettingsUI::RenderMapSelectionTab(int mapTypeValue,

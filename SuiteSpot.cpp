@@ -89,6 +89,10 @@ bool SuiteSpot::IsAutoQueueEnabled() const {
     return settingsSync ? settingsSync->IsAutoQueue() : false;
 }
 
+bool SuiteSpot::IsTrainingGameSpeedFixEnabled() const {
+    return settingsSync ? settingsSync->IsTrainingGameSpeedFixEnabled() : true;
+}
+
 int SuiteSpot::GetMapType() const {
     return settingsSync ? settingsSync->GetMapType() : 0;
 }
@@ -153,6 +157,55 @@ using namespace std::chrono_literals;
 BAKKESMOD_PLUGIN(SuiteSpot, "SuiteSpot", plugin_version, PLUGINTYPE_FREEPLAY)
 
 shared_ptr<CVarManagerWrapper> _globalCvarManager;
+
+float SuiteSpot::ConvertMenuPercentToDecimal(float menuValue) {
+    if (!std::isfinite(menuValue)) {
+        return 1.0f;
+    }
+
+    return std::clamp(menuValue, 0.01f, 10.0f);
+}
+
+void SuiteSpot::ApplyTrainingGameSpeedFromMenuValue(float menuValue) {
+    officialTrainingGameSpeed = ConvertMenuPercentToDecimal(menuValue);
+    LOG("Captured in-game training speed from settings menu > {}", officialTrainingGameSpeed);
+
+    if (!IsTrainingGameSpeedFixEnabled()) {
+        LOG("Training game speed fix is OFF; stored official setting > {} without applying correction", officialTrainingGameSpeed);
+        return;
+    }
+
+    CVarWrapper speedCvar = cvarManager->getCvar("sv_soccar_gamespeed");
+    if (!speedCvar) {
+        return;
+    }
+
+    speedCvar.setValue(officialTrainingGameSpeed);
+    LOG("Applied official training speed to sv_soccar_gamespeed > {}", officialTrainingGameSpeed);
+}
+
+void SuiteSpot::LoadTrainingGameSpeedHooks() {
+    LOG("Registering training game speed menu hook");
+    gameWrapper->HookEventWithCaller<ActorWrapper>(
+        "Function TAGame.GFxData_Settings_TA.SetTrainingGameSpeed",
+        [this](ActorWrapper caller, void* params, std::string eventName) {
+            if (params == nullptr) {
+                return;
+            }
+
+            // BakkesMod params point directly to the first parameter (no padding)
+            // SetTrainingGameSpeed has a single float parameter
+            float rawValue = *reinterpret_cast<float*>(params);
+            LOG("Raw training speed value from menu: {}", rawValue);
+
+            ApplyTrainingGameSpeedFromMenuValue(rawValue);
+        });
+}
+
+void SuiteSpot::UnloadTrainingGameSpeedHooks() {
+    LOG("Unregistering training game speed menu hook");
+    gameWrapper->UnhookEvent("Function TAGame.GFxData_Settings_TA.SetTrainingGameSpeed");
+}
 
 void SuiteSpot::LoadHooks() {
     // ===== MATCH EVENT HOOKS =====
@@ -226,20 +279,7 @@ void SuiteSpot::GameEndedEvent(std::string name) {
         autoLoadFeature->OnMatchEnded(gameWrapper, cvarManager, RLMaps, RLTraining, RLWorkshop,
             useBagRotation, selectedBagPack, *settingsSync, usageTracker.get());
 
-        // Increment usage count for training packs
-        if (settingsSync->GetMapType() == 1) {
-            std::string codeToLoad;
-            if (useBagRotation) {
-                codeToLoad = selectedBagPack.code;
-            } else {
-                codeToLoad = settingsSync->GetQuickPicksSelectedCode();
-                if (codeToLoad.empty()) codeToLoad = settingsSync->GetCurrentTrainingCode();
-            }
-
-            if (!codeToLoad.empty() && usageTracker) {
-                usageTracker->IncrementLoadCount(codeToLoad);
-            }
-        }
+        // Usage tracking handled by AutoLoadFeature::OnMatchEnded
     }
 }
 
@@ -380,6 +420,7 @@ void SuiteSpot::onLoad() {
             }
         }
     }
+    LoadTrainingGameSpeedHooks();
 
     LOG("SuiteSpot: Plugin initialization complete");
 }
@@ -418,6 +459,8 @@ void SuiteSpot::onUnload() {
     if (usageTracker) {
         usageTracker->SaveStats();
     }
+
+    UnloadTrainingGameSpeedHooks();
 
     // STEP 3: Unhook all game events (CRITICAL - SDK requirement)
     gameWrapper->UnhookEventPost("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded");

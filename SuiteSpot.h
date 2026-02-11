@@ -120,6 +120,7 @@ public:
     
     bool IsEnabled() const;
     bool IsAutoQueueEnabled() const;
+    bool IsTrainingGameSpeedFixEnabled() const;
     int GetMapType() const;
     int GetDelayQueueSec() const;
     int GetDelayFreeplaySec() const;
@@ -130,6 +131,11 @@ public:
     std::string GetCurrentWorkshopPath() const;
 
 private:
+    void LoadTrainingGameSpeedHooks();
+    void UnloadTrainingGameSpeedHooks();
+    void ApplyTrainingGameSpeedFromMenuValue(float menuValue);
+    static float ConvertMenuPercentToDecimal(float menuValue);
+
     // Loadout management
     std::unique_ptr<LoadoutManager> loadoutManager;
     std::unique_ptr<PackUsageTracker> usageTracker;
@@ -145,6 +151,7 @@ private:
     std::unique_ptr<LoadoutUI> loadoutUI;
 
     bool isBrowserOpen = false;
+    float officialTrainingGameSpeed = 1.0f;
     uintptr_t imgui_ctx = 0;
     std::atomic<bool> isRenderingSettings{false};
     std::thread textureDownloadThread;  // Managed texture download thread

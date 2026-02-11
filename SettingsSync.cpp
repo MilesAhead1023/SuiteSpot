@@ -22,6 +22,11 @@ void SettingsSync::RegisterAllCVars(const std::shared_ptr<CVarManagerWrapper>& c
             autoQueue = cvar.getBoolValue();
         });
 
+    cvarManager->registerCvar("suitespot_fix_training_gamespeed", "1", "Keep in-game training speed synced with BM in training playlists", true, true, 0, true, 1)
+        .addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
+            trainingGameSpeedFixEnabled = cvar.getBoolValue();
+        });
+
     cvarManager->registerCvar("suitespot_quickpicks_list_type", "0", "List type: 0=Flicks Picks, 1=Your Favorites", true, true, 0, true, 1)
         .addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) {
             quickPicksListType = cvar.getIntValue();

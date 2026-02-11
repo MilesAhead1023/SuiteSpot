@@ -33,6 +33,7 @@ public:
     bool IsEnabled() const { return enabled; }
     int GetMapType() const { return mapType; }
     bool IsAutoQueue() const { return autoQueue; }
+    bool IsTrainingGameSpeedFixEnabled() const { return trainingGameSpeedFixEnabled; }
     bool IsBagRotationEnabled() const { return false; }  // Removed feature, always return false
     // Bag rotation removed - GetTrainingMode() removed
     int GetQuickPicksListType() const { return quickPicksListType; }
@@ -66,6 +67,7 @@ private:
     bool enabled = false;
     int mapType = 0; // 0=Freeplay, 1=Training, 2=Workshop
     bool autoQueue = false;
+    bool trainingGameSpeedFixEnabled = true;
 
     // Bag rotation removed - trainingMode variable removed
     int quickPicksListType = 0; // 0=Flicks Picks, 1=Your Favorites
