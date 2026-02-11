@@ -34,8 +34,6 @@ public:
     int GetMapType() const { return mapType; }
     bool IsAutoQueue() const { return autoQueue; }
     bool IsTrainingGameSpeedFixEnabled() const { return trainingGameSpeedFixEnabled; }
-    bool IsBagRotationEnabled() const { return false; }  // Removed feature, always return false
-    // Bag rotation removed - GetTrainingMode() removed
     int GetQuickPicksListType() const { return quickPicksListType; }
     int GetQuickPicksCount() const { return quickPicksCount; }
     std::string GetQuickPicksSelected() const { return quickPicksSelected; }
@@ -60,7 +58,6 @@ public:
     void SetCurrentTrainingCode(const std::string& code);
     void SetQuickPicksSelected(const std::string& code);
     void SetCurrentWorkshopPath(const std::string& path);
-    void SetTrainingMode(int mode);
 
 private:
     // Local copies of settings for fast access
@@ -68,8 +65,6 @@ private:
     int mapType = 0; // 0=Freeplay, 1=Training, 2=Workshop
     bool autoQueue = false;
     bool trainingGameSpeedFixEnabled = true;
-
-    // Bag rotation removed - trainingMode variable removed
     int quickPicksListType = 0; // 0=Flicks Picks, 1=Your Favorites
     int quickPicksCount = 10;
     std::string quickPicksSelected = "";

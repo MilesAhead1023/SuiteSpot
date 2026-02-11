@@ -281,9 +281,6 @@ namespace UI {
 		// Text color for scraping status message (bright yellow)
 		inline const ImVec4 SCRAPING_STATUS_TEXT_COLOR = ImVec4(1.0f, 0.9f, 0.2f, 1.0f);
 
-		// Text color for bag rotation active status message (bright green)
-		inline const ImVec4 BAG_ROTATION_STATUS_COLOR = ImVec4(0.4f, 1.0f, 0.4f, 1.0f);
-
 		// Text color for success message "Pack added!" in custom pack form (bright green)
 		inline const ImVec4 SUCCESS_MESSAGE_TEXT_COLOR = ImVec4(0.4f, 1.0f, 0.4f, 1.0f);
 

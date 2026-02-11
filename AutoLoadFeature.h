@@ -35,14 +35,11 @@ class AutoLoadFeature
 public:
     // The main entry point. Called when the match ends.
     // It takes ALL the necessary data (settings, map lists) and decides what to do.
-    // For training mode: if useBagRotation is true, selectedBagPack contains the pre-selected pack
     void OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
         std::shared_ptr<CVarManagerWrapper> cvarManager,
         const std::vector<MapEntry>& freeplayMaps,
         const std::vector<TrainingEntry>& trainingPacks,
         const std::vector<WorkshopEntry>& workshopMaps,
-        bool useBagRotation,
-        const TrainingEntry& selectedBagPack,
         SettingsSync& settings,
         PackUsageTracker* usageTracker);
 };

@@ -48,7 +48,6 @@ void SettingsUI::RenderMainSettingsWindow() {
                 statusMessage.ShowSuccess("Loading Freeplay", 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
             }
         } else if (mapType == 1) { // Training
-            // Bag rotation removed - always use single pack mode
             std::string code = p->settingsSync->GetQuickPicksSelectedCode();
             if (code.empty()) code = p->GetCurrentTrainingCode();
 
@@ -82,7 +81,6 @@ void SettingsUI::RenderMainSettingsWindow() {
     bool enabledValue = plugin_->IsEnabled();
     int mapTypeValue = plugin_->GetMapType();
     bool autoQueueValue = plugin_->IsAutoQueueEnabled();
-    // Bag rotation removed - trainingModeValue removed
     int delayQueueSecValue = plugin_->GetDelayQueueSec();
     int delayFreeplaySecValue = plugin_->GetDelayFreeplaySec();
     int delayTrainingSecValue = plugin_->GetDelayTrainingSec();
@@ -118,7 +116,6 @@ void SettingsUI::RenderMainSettingsWindow() {
             const auto& trainingPacks = plugin_->trainingPackMgr ?
                 plugin_->trainingPackMgr->GetPacks() : RLTraining;
 
-            // Bag rotation removed - show single pack mode
             std::string targetCode = quickPicksSelectedCode;
             if (targetCode.empty()) targetCode = currentTrainingCode;
             
@@ -238,7 +235,7 @@ void SettingsUI::RenderMainSettingsWindow() {
             ImGui::Spacing();
 
             // 2) Map Selection Logic
-            RenderMapSelectionTab(mapTypeValue, false, currentFreeplayCode,
+            RenderMapSelectionTab(mapTypeValue, currentFreeplayCode,
                 currentTrainingCode, currentWorkshopPath, delayFreeplaySecValue,
                 delayTrainingSecValue, delayWorkshopSecValue, delayQueueSecValue);
 
@@ -308,7 +305,6 @@ void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue) {
 }
 
 void SettingsUI::RenderMapSelectionTab(int mapTypeValue,
-    bool unused, // retired
     std::string& currentFreeplayCode,
     std::string& currentTrainingCode,
     std::string& currentWorkshopPath,
@@ -322,7 +318,6 @@ void SettingsUI::RenderMapSelectionTab(int mapTypeValue,
     if (mapTypeValue == 0) {
         RenderFreeplayMode(currentFreeplayCode);
     } else if (mapTypeValue == 1) {
-        // Bag rotation removed - always single pack mode
         RenderTrainingMode(0, currentTrainingCode);
     } else if (mapTypeValue == 2) {
         RenderWorkshopMode(currentWorkshopPath);
@@ -378,7 +373,6 @@ const char* freeplayLabel = RLMaps.empty() ? "<none>" : RLMaps[currentIndex].nam
 }
 
 void SettingsUI::RenderTrainingMode(int trainingModeValue, std::string& currentTrainingCode) {
-    // Bag rotation removed - always use single pack mode
     RenderSinglePackMode(currentTrainingCode);
 
     ImGui::Spacing();
@@ -714,11 +708,6 @@ std::string selectedCode = plugin_->settingsSync->GetQuickPicksSelectedCode();
         }
     }
     ImGui::EndChild();
-}
-
-void SettingsUI::RenderBagRotationMode() {
-    // Bag rotation feature removed
-    ImGui::TextDisabled("Bag rotation feature has been removed");
 }
 
 std::vector<std::string> SettingsUI::GetQuickPicksList() {

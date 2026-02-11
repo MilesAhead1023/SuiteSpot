@@ -150,10 +150,6 @@ void SuiteSpot::UpdateTrainingPackList() {
     }
 }
 
-
-using namespace std;
-using namespace std::chrono_literals;
-
 BAKKESMOD_PLUGIN(SuiteSpot, "SuiteSpot", plugin_version, PLUGINTYPE_FREEPLAY)
 
 shared_ptr<CVarManagerWrapper> _globalCvarManager;
@@ -272,12 +268,8 @@ void SuiteSpot::GameEndedEvent(std::string name) {
     if (autoLoadFeature && settingsSync) {
         LOG("SuiteSpot: Triggering AutoLoadFeature::OnMatchEnded");
 
-        // Bag rotation removed - always use single pack mode
-        TrainingEntry selectedBagPack;  // Empty
-        const bool useBagRotation = false;
-
         autoLoadFeature->OnMatchEnded(gameWrapper, cvarManager, RLMaps, RLTraining, RLWorkshop,
-            useBagRotation, selectedBagPack, *settingsSync, usageTracker.get());
+            *settingsSync, usageTracker.get());
 
         // Usage tracking handled by AutoLoadFeature::OnMatchEnded
     }
@@ -586,29 +578,7 @@ void SuiteSpot::OnOpen() {
 
 
 void SuiteSpot::OnClose() {
-
-
-
     LOG("SuiteSpot: OnClose called (Ignoring state change to keep browser open)");
-
-
-
-    // isBrowserOpen = false; // Disabled to prevent F2 from closing browser
-
-
-
-    // if (trainingPackUI) {
-
-
-
-    //    trainingPackUI->SetOpen(false);
-
-
-
-    // }
-
-
-
 }
 
 std::filesystem::path SuiteSpot::GetTrainingPacksPath() const
@@ -622,10 +592,6 @@ void SuiteSpot::LoadTrainingPacksFromFile(const std::filesystem::path& filePath)
         trainingPackMgr->LoadPacksFromFile(filePath);
     }
 }
-
-
-
-
 
 
 
