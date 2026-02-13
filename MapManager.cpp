@@ -249,7 +249,7 @@ bool MapManager::LoadWorkshopMetadata(const std::filesystem::path& jsonPath,
         }
         return true;
     }
-    catch (const std::exception& e) {
+    catch (const std::exception&) {
         // Silently fail for malformed JSON - don't spam the log
         return false;
     }

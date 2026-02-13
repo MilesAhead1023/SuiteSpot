@@ -51,7 +51,7 @@ public:
     
     void GetResults(std::string keyWord, int IndexPage);
     void FetchReleaseDetails(int index, int generation);
-    void FetchImageOnly(int index, int generation);  // Lightweight: only fetches image via /packages endpoint
+
     void GetNumPages(std::string keyWord);
     
     void RLMAPS_DownloadWorkshop(std::string folderpath, RLMAPS_MapResult mapResult, RLMAPS_Release release);

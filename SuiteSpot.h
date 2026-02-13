@@ -153,6 +153,7 @@ private:
     bool isBrowserOpen = false;
     float officialTrainingGameSpeed = 1.0f;
     uintptr_t imgui_ctx = 0;
+    ImFont* clockFont = nullptr;
     std::atomic<bool> isRenderingSettings{false};
     std::thread textureDownloadThread;  // Managed texture download thread
 };

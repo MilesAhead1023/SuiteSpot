@@ -10,6 +10,7 @@
 #include "TrainingPackUI.h"
 #include "LoadoutUI.h"
 #include "bakkesmod/wrappers/GameEvent/TrainingEditorWrapper.h"
+#include "bakkesmod/wrappers/GuiManagerWrapper.h"
 #include <fstream>
 #include <string>
 #include <algorithm>
@@ -391,6 +392,7 @@ void SuiteSpot::onLoad() {
         }
     }
     
+
     LoadHooks();
 
     if (settingsSync) {
@@ -520,8 +522,21 @@ void SuiteSpot::SetImGuiContext(uintptr_t ctx) {
 
         ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx));
 
-
-
+        // Load clock font — GetFont first (hot-reload: font already in atlas, no rebuild)
+        // Falls back to Execute + LoadFont (cold start: defers atlas rebuild to game thread)
+        if (!clockFont) {
+            auto gui = gameWrapper->GetGUIManager();
+            clockFont = gui.GetFont("suitespot_clock_48");
+            if (!clockFont) {
+                gameWrapper->Execute([this](GameWrapper* gw) {
+                    auto gui = gw->GetGUIManager();
+                    auto [res, font] = gui.LoadFont("suitespot_clock_48", "Ubuntu-Regular.ttf", 48);
+                    if (res == 2 && font) {
+                        clockFont = font;
+                    }
+                });
+            }
+        }
     }
 
 

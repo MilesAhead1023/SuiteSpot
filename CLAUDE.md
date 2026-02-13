@@ -8,7 +8,12 @@ SuiteSpot is a BakkesMod plugin for Rocket League that automatically loads train
 
 ## Build Commands
 
-**Build the plugin:**
+**Build the plugin (local):**
+```powershell
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' SuiteSpot.sln /p:Configuration=Release /p:Platform=x64 /v:minimal
+```
+
+**Build the plugin (generic — requires MSBuild on PATH):**
 ```bash
 msbuild SuiteSpot.sln /p:Configuration=Release /p:Platform=x64
 ```
@@ -20,7 +25,7 @@ cd bakkesmodsdk && git checkout 479e8f571cf554b25f4eeb64d611dec4133edcaf && cd .
 msbuild /m /p:Configuration=Release /p:BakkesModPath="." SuiteSpot.sln
 ```
 
-For local development, the BakkesMod SDK path is configured in `BakkesMod.props`. The post-build step copies the DLL and resources to the BakkesMod plugins folder and patches it with `bakkesmod-patch.exe`.
+For local development, the BakkesMod SDK path is configured in `BakkesMod.props`. The post-build step copies the DLL and resources to the BakkesMod plugins folder and patches it with `bakkesmod-patch.exe`. If Rocket League is running, the post-build hot-reloads the plugin (unload → copy → load). **Hot-reload crashes** can occur if the plugin modifies shared resources (font atlas, textures) during reload — always use `gameWrapper->Execute()` to defer such operations.
 
 ## Architecture
 
@@ -58,23 +63,60 @@ Components don't communicate directly—all coordination flows through the Hub.
 
 ## Technical Patterns
 
-**Thread Safety:** WorkshopDownloader and TrainingPackManager use mutexes. Downloads run in background threads to avoid blocking the game.
+**Thread Safety:** WorkshopDownloader and TrainingPackManager use mutexes. Downloads run in background threads to avoid blocking the game. WorkshopDownloader uses `weak_ptr` + generation tracking to safely handle async HTTP callbacks — always check `searchGeneration` matches before touching shared state.
+
+**Game Thread Safety:** Use `gameWrapper->Execute()` to defer operations to the game thread between frames. Use `gameWrapper->SetTimeout()` for delayed execution. Both patterns prevent crashes from modifying shared state (font atlas, game wrappers) during rendering. See `LoadoutManager.cpp` for the canonical `Execute()` pattern.
 
 **Delayed Execution:** Uses `gameWrapper->SetTimeout()` to schedule commands after match-end. Minimum 0.1s delay prevents crashes during game state transitions.
 
 **Settings Persistence:** All settings use BakkesMod CVars with `.addOnValueChanged()` callbacks for immediate sync. CVars auto-persist to `config.cfg`.
 
-**UI Framework:** ImGui with DirectX 11 backend. Custom widgets in `imgui/` folder (range sliders, searchable combos, timeline).
+**UI Framework:** ImGui 1.75 with DirectX 11 backend. Custom widgets in `imgui/` folder (range sliders, searchable combos, timeline).
+
+### Font Loading (CRITICAL — crashes if done wrong)
+
+BakkesMod provides `GUIManager::LoadFont()` to load fonts into the ImGui atlas. **`LoadFont` triggers an atlas rebuild that will crash the game if called during rendering or hot-reload.**
+
+**Safe pattern (used in `SuiteSpot.cpp` SetImGuiContext):**
+```cpp
+// 1. Try GetFont first — font survives hot-reload in the atlas
+clockFont = gui.GetFont("suitespot_clock_48");
+// 2. Only LoadFont on cold start, deferred to game thread via Execute()
+if (!clockFont) {
+    gameWrapper->Execute([this](GameWrapper* gw) {
+        auto gui = gw->GetGUIManager();
+        auto [res, font] = gui.LoadFont("name", "font.ttf", 48);
+        if (res == 2 && font) clockFont = font;
+    });
+}
+```
+
+**Rules:**
+- NEVER call `LoadFont` inside a render function
+- NEVER call `LoadFont` directly in `SetImGuiContext` — wrap in `Execute()`
+- Always try `GetFont` first — it returns the existing font without rebuilding
+- Font files live in `bakkesmod/data/fonts/` (currently: `Ubuntu-Regular.ttf`)
+- `LoadFont` returns: 0=failed, 1=queued, 2=loaded
+- Use `GetFont` in the render path to lazily resolve async-loaded fonts
+
+### ImGui Layout Tips
+
+- **Overlay text without affecting layout:** Use `ImDrawList::AddText(font, fontSize, pos, color, text)` — draws directly, doesn't touch ImGui's cursor or layout flow.
+- **DO NOT** use `SetCursorPos` to move the cursor backward for overlapping elements — it breaks layout for all subsequent items.
+- **Font scaling produces blurry text.** Both `SetWindowFontScale` and `AddText` with scaled `fontSize` stretch the bitmap atlas. For crisp large text, load a font at the target pixel size via `LoadFont`.
+- `GetItemRectMin()`/`GetItemRectSize()` after `EndGroup()` gives the group's bounding box for positioning overlays.
 
 ## Data Locations
 
 ```
 %APPDATA%\bakkesmod\bakkesmod\
 ├── plugins\SuiteSpot.dll
-├── data\SuiteSpot\TrainingSuite\
-│   ├── training_packs.json    (2300+ packs, 2.6MB)
-│   └── pack_usage_stats.json  (user history)
-└── cfg\config.cfg             (CVars/settings)
+├── data\
+│   ├── SuiteSpot\TrainingSuite\
+│   │   ├── training_packs.json    (2300+ packs, 2.6MB)
+│   │   └── pack_usage_stats.json  (user history)
+│   └── fonts\Ubuntu-Regular.ttf   (clock display font, 48px)
+└── cfg\config.cfg                 (CVars/settings)
 ```
 
 ## External Dependencies

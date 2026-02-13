@@ -11,11 +11,13 @@
 #include "ConstantsUI.h"
 #include "HelpersUI.h"
 #include "DefaultPacks.h"
+#include "bakkesmod/wrappers/GuiManagerWrapper.h"
 
 #include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <cstring>
+#include <ctime>
 
 SettingsUI::SettingsUI(SuiteSpot* plugin) : plugin_(plugin) {}
 
@@ -31,12 +33,60 @@ void SettingsUI::RenderMainSettingsWindow() {
     ImGui::TextColored(UI::SettingsUI::HEADER_TEXT_COLOR, "By: Flicks Creations");
     std::string ver = "Version: " + std::string(plugin_version);
     ImGui::TextColored(UI::SettingsUI::HEADER_TEXT_COLOR, "%s", ver.c_str());
+    {
+        // Format __DATE__ ("Mmm dd yyyy") and __TIME__ ("hh:mm:ss") into "Mmm. dd, yyyy h:mm:ss AM/PM"
+        char buildDate[] = __DATE__;  // e.g. "Feb 12 2026"
+        char buildTime[] = __TIME__;  // e.g. "23:50:30"
+        int hour = (buildTime[0] - '0') * 10 + (buildTime[1] - '0');
+        const char* ampm = hour >= 12 ? "PM" : "AM";
+        int hour12 = hour % 12;
+        if (hour12 == 0) hour12 = 12;
+        // Month is first 3 chars, day starts at index 4, year starts at index 7
+        char day[3] = { buildDate[4] == ' ' ? '0' : buildDate[4], buildDate[5], '\0' };
+        ImGui::TextColored(UI::SettingsUI::HEADER_TEXT_COLOR,
+            "Built: %.3s. %s, %.4s %d:%.2s:%.2s %s",
+            buildDate, day, buildDate + 7,
+            hour12, buildTime + 3, buildTime + 6, ampm);
+    }
     ImGui::EndGroup();
+
+    // Live system clock - drawn directly on the draw list so it doesn't affect layout
+    {
+        // Retrieve the clock font (queued in onLoad, built asynchronously by BakkesMod)
+        if (!plugin_->clockFont) {
+            auto gui = plugin_->gameWrapper->GetGUIManager();
+            plugin_->clockFont = gui.GetFont("suitespot_clock_48");
+        }
+
+        ImFont* font = plugin_->clockFont;
+        if (font) {
+            std::time_t now = std::time(nullptr);
+            std::tm local{};
+            localtime_s(&local, &now);
+            int h = local.tm_hour % 12;
+            if (h == 0) h = 12;
+            const char* ap = local.tm_hour >= 12 ? "pm" : "am";
+            char clockBuf[32];
+            snprintf(clockBuf, sizeof(clockBuf), "%d:%02d:%02d%s", h, local.tm_min, local.tm_sec, ap);
+
+            float fontSize = font->FontSize;  // Native size — crisp rendering
+            ImVec2 clockSize = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, clockBuf);
+            ImVec2 windowPos = ImGui::GetWindowPos();
+            float windowWidth = ImGui::GetWindowWidth();
+            ImVec2 groupSize = ImGui::GetItemRectSize();  // size of the preceding group
+            ImVec2 groupMin = ImGui::GetItemRectMin();     // top-left of the group
+            float clockX = windowPos.x + (windowWidth - clockSize.x) * 0.5f;
+            float clockY = groupMin.y + (groupSize.y - clockSize.y) * 0.5f;
+            ImGui::GetWindowDrawList()->AddText(font, fontSize, ImVec2(clockX, clockY),
+                IM_COL32(255, 255, 255, 255), clockBuf);
+        }
+    }
 
     ImGui::SameLine(ImGui::GetWindowWidth() - 150.0f);
     if (ImGui::Button("LOAD NOW", ImVec2(130, 26))) {
         int mapType = plugin_->GetMapType();
         SuiteSpot* p = plugin_;
+        bool issuedLoad = false;
 
         if (mapType == 0) { // Freeplay
             std::string code = p->GetCurrentFreeplayCode();
@@ -46,6 +96,7 @@ void SettingsUI::RenderMainSettingsWindow() {
                     p->cvarManager->executeCommand("load_freeplay " + code);
                 }, 0.0f);
                 statusMessage.ShowSuccess("Loading Freeplay", 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                issuedLoad = true;
             }
         } else if (mapType == 1) { // Training
             std::string code = p->settingsSync->GetQuickPicksSelectedCode();
@@ -58,6 +109,7 @@ void SettingsUI::RenderMainSettingsWindow() {
                     p->cvarManager->executeCommand("load_training " + code);
                 }, 0.0f);
                 statusMessage.ShowSuccess("Loading Training Pack", 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                issuedLoad = true;
             }
         } else if (mapType == 2) { // Workshop
             std::string path = p->GetCurrentWorkshopPath();
@@ -67,7 +119,12 @@ void SettingsUI::RenderMainSettingsWindow() {
                     p->cvarManager->executeCommand("load_workshop \"" + path + "\"");
                 }, 0.0f);
                 statusMessage.ShowSuccess("Loading Workshop Map", 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                issuedLoad = true;
             }
+        }
+
+        if (issuedLoad && p->cvarManager) {
+            p->cvarManager->executeCommand("togglemenu settings");
         }
     }
     if (ImGui::IsItemHovered()) {
@@ -478,6 +535,9 @@ void SettingsUI::RenderWorkshopMode(std::string& currentWorkshopPath) {
                     p->cvarManager->executeCommand("load_workshop \"" + path + "\"");
                 }, 0.0f);
                 statusMessage.ShowSuccess("Loading Workshop Map", 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                if (p->cvarManager) {
+                    p->cvarManager->executeCommand("togglemenu settings");
+                }
             }
 
             ImGui::PopID();
@@ -577,6 +637,9 @@ void SettingsUI::RenderWorkshopMode(std::string& currentWorkshopPath) {
                     p->cvarManager->executeCommand("load_workshop \"" + path + "\"");
                 }, 0.0f);
                 statusMessage.ShowSuccess("Loading Workshop Map", 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                if (p->cvarManager) {
+                    p->cvarManager->executeCommand("togglemenu settings");
+                }
             }
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Load this workshop map immediately");
@@ -942,18 +1005,9 @@ void SettingsUI::RLMAPS_RenderAResult(int i, ImDrawList* drawList, const char* m
                 }
                 RenderReleases(mapResult, mapspath);
             } else {
-                if (plugin_->workshopDownloader->RLMAPS_Searching) {
-                    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-                    ImGui::Button("Loading...", ImVec2(182, 20));
-                    ImGui::PopStyleVar();
-                } else {
-                    if (ImGui::Button("Get Downloads", ImVec2(182, 20))) {
-                        int generation = plugin_->workshopDownloader->GetSearchGeneration();
-                        std::thread t(&WorkshopDownloader::FetchReleaseDetails,
-                                      plugin_->workshopDownloader.get(), i, generation);
-                        t.detach();
-                    }
-                }
+                ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+                ImGui::Button("Loading...", ImVec2(182, 20));
+                ImGui::PopStyleVar();
             }
             
             ImGui::EndGroup();
