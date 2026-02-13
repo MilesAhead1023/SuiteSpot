@@ -79,6 +79,10 @@ public:
     std::atomic<int> RLMAPS_WorkshopDownload_Progress = 0;
     std::atomic<int> RLMAPS_WorkshopDownload_FileSize = 0;
     
+    // Download confirmation flags (donor plugin pattern: thread spin-waits for UI)
+    std::atomic<bool> UserIsChoosingYESorNO = false;
+    std::atomic<bool> AcceptTheDownload = false;
+    
     std::atomic<bool> FolderErrorBool = false;
     std::string FolderErrorText;
 
@@ -100,12 +104,13 @@ public:
 
     // Helper to get current generation safely
     int GetSearchGeneration() const { return searchGeneration.load(); }
+    
+    std::string SanitizeMapName(const std::string& name);
 
 private:
     std::shared_ptr<GameWrapper> gameWrapper;
     std::thread searchThread; // Worker thread for search operations
     
-    std::string SanitizeMapName(const std::string& name);
     void CleanHTML(std::string& S);
     void EraseAll(std::string& str, const std::string& from);
     void ReplaceAll(std::string& str, const std::string& from, const std::string& to);

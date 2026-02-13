@@ -168,13 +168,13 @@ void WorkshopDownloader::GetResults(std::string keyWord, int IndexPage)
                     LOG("Map list populated. Version: {}", self->listVersion.load());
                 }
 
-                // Launch parallel threads for each map - use lightweight FetchImageOnly instead of FetchReleaseDetails
+                // Launch parallel threads for each map
                 int totalMaps = actualJson.size();
                 self->expectedResults = totalMaps;
                 self->completedResults = 0;
 
                 for (int i = 0; i < totalMaps; ++i) {
-                    std::thread t(&WorkshopDownloader::FetchImageOnly, self.get(), i, currentGeneration);
+                    std::thread t(&WorkshopDownloader::FetchReleaseDetails, self.get(), i, currentGeneration);
                     t.detach();
                     std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 50ms delay between spawns (faster than before)
                 }
@@ -296,14 +296,17 @@ void WorkshopDownloader::FetchReleaseDetails(int index, int generation)
                                 std::string nameLower = name;
                                 std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
 
-                                // Identify image links by extension
+                                std::string linkType = SafeGetString(link, "link_type", "");
+
+                                // Identify image links by link_type or extension
                                 if (pictureLink.empty() &&
-                                    (nameLower.ends_with(".jpg") || nameLower.ends_with(".jpeg") ||
+                                    (linkType == "image" ||
+                                     nameLower.ends_with(".jpg") || nameLower.ends_with(".jpeg") ||
                                      nameLower.ends_with(".png") || nameLower.ends_with(".jfif") ||
                                      nameLower.ends_with(".webp"))) {
                                     pictureLink = url;
                                 }
-                                // Identify download links by extension
+                                // Identify download links by extension (link_type is "other" not "package")
                                 else if (downloadLink.empty() && nameLower.ends_with(".zip")) {
                                     downloadLink = url;
                                     zipName = name;
@@ -320,7 +323,7 @@ void WorkshopDownloader::FetchReleaseDetails(int index, int generation)
 
                                 // Sanitize zip name
                                 std::string zipNameSafe = zipName;
-                                std::string specials[] = { "/", "\\", "?", ":", "*", "\"", "<", ">", "|", "#", "'", "" };
+                                std::string specials[] = { "/", "\\", "?", ":", "*", "\"", "<", ">", "|", "#", "'" };
                                 for (auto special : specials) {
                                     self->EraseAll(zipNameSafe, special);
                                 }
@@ -569,6 +572,17 @@ void WorkshopDownloader::StopSearch()
 
 void WorkshopDownloader::RLMAPS_DownloadWorkshop(std::string folderpath, RLMAPS_MapResult mapResult, RLMAPS_Release release)
 {
+    // Donor plugin pattern: spin-wait for user confirmation via UI
+    UserIsChoosingYESorNO = true;
+
+    while (UserIsChoosingYESorNO) {
+        Sleep(100);
+    }
+
+    if (!AcceptTheDownload) {
+        return;
+    }
+
     std::string workshopSafeMapName = SanitizeMapName(mapResult.Name);
     
     std::string Workshop_Dl_Path;
@@ -611,72 +625,60 @@ void WorkshopDownloader::RLMAPS_DownloadWorkshop(std::string folderpath, RLMAPS_
     
     CurlRequest req;
     req.url = download_url;
-    
-    std::weak_ptr<WorkshopDownloader> weak_self = shared_from_this();
-
-    req.progress_function = [weak_self](double file_size, double downloaded, ...) {
-        auto self = weak_self.lock();
-        if (self) {
-            self->RLMAPS_Download_Progress = downloaded;
-            self->RLMAPS_WorkshopDownload_FileSize = file_size;
-        }
+    req.progress_function = [this](double file_size, double downloaded, ...) {
+        RLMAPS_Download_Progress = downloaded;
+        RLMAPS_WorkshopDownload_FileSize = file_size;
     };
-    
-    HttpWrapper::SendCurlRequest(req, [weak_self, Folder_Path, Workshop_Dl_Path](int code, char* data, size_t size) {
-        auto self = weak_self.lock();
-        if (!self) return;
 
+    HttpWrapper::SendCurlRequest(req, [this, Folder_Path, Workshop_Dl_Path](int code, char* data, size_t size) {
         if (code == 200) {
             std::ofstream out_file{ Folder_Path, std::ios_base::binary };
             if (out_file) {
                 out_file.write(data, size);
                 out_file.close();
-
                 LOG("Workshop downloaded to: {}", Workshop_Dl_Path);
-
-                // Extract with error checking
-                int extractResult = self->ExtractZipPowerShell(Folder_Path, Workshop_Dl_Path);
-
-                if (extractResult != 0) {
-                    LOG("[ERR] PowerShell extraction failed with code: {}", extractResult);
-                    self->RLMAPS_IsDownloadingWorkshop = false;
-                    self->FolderErrorBool = true;
-                    self->FolderErrorText = "Failed to extract ZIP file. Check PowerShell execution policy.";
-                    return;
-                }
-
-                // Poll for .udk file with longer timeout and better logging
-                int checkTime = 0;
-                std::string foundUdk = "Null";
-                while ((foundUdk = self->UdkInDirectory(Workshop_Dl_Path)) == "Null") {
-                    if (checkTime > 30) {  // Increased from 10 to 30 seconds
-                        LOG("[ERR] Timeout waiting for .udk file extraction");
-                        self->RLMAPS_IsDownloadingWorkshop = false;
-                        self->FolderErrorBool = true;
-                        self->FolderErrorText = "Extraction timeout: .udk file not found after 30 seconds";
-                        return;
-                    }
-
-                    if (checkTime % 5 == 0) {  // Log every 5 seconds
-                        LOG("⏳ Waiting for extraction... ({}/30 seconds)", checkTime);
-                    }
-
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
-                    checkTime++;
-                }
-
-                LOG("[OK] File extracted: {}", foundUdk);
-                self->RenameFileToUPK(Workshop_Dl_Path);
-                self->RLMAPS_IsDownloadingWorkshop = false;
-            } else {
-                LOG("Failed to open output file: {}", Folder_Path);
-                self->RLMAPS_IsDownloadingWorkshop = false;
+                RLMAPS_IsDownloadingWorkshop = false;
             }
         } else {
             LOG("Workshop download failed with code {}", code);
-            self->RLMAPS_IsDownloadingWorkshop = false;
+            RLMAPS_IsDownloadingWorkshop = false;
         }
     });
+
+    // Spin-wait for download to complete (donor plugin pattern)
+    while (RLMAPS_IsDownloadingWorkshop) {
+        RLMAPS_WorkshopDownload_Progress = RLMAPS_Download_Progress.load();
+        Sleep(500);
+    }
+
+    // Extract silently without stealing focus (CREATE_NO_WINDOW)
+    LOG("Extracting zip: {}", Folder_Path);
+    std::string extractCommand = "powershell.exe -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '" + Folder_Path + "' -DestinationPath '" + Workshop_Dl_Path + "' -Force\"";
+    
+    STARTUPINFOA si = { sizeof(si) };
+    PROCESS_INFORMATION pi = {};
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    
+    if (CreateProcessA(NULL, const_cast<char*>(extractCommand.c_str()), NULL, NULL, FALSE,
+                       CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+
+    int checkTime = 0;
+    while (UdkInDirectory(Workshop_Dl_Path) == "Null") {
+        if (checkTime > 10) {
+            LOG("Failed extracting the map zip file");
+            return;
+        }
+        Sleep(1000);
+        checkTime++;
+    }
+
+    LOG("File Extracted");
+    RenameFileToUPK(Workshop_Dl_Path);
 }
 
 void WorkshopDownloader::DownloadPreviewImage(std::string downloadUrl, std::string filePath, int mapResultIndex, int generation)
