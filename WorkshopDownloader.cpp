@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "WorkshopDownloader.h"
+#include "ProcessUtils.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -651,21 +652,9 @@ void WorkshopDownloader::RLMAPS_DownloadWorkshop(std::string folderpath, RLMAPS_
         Sleep(500);
     }
 
-    // Extract silently without stealing focus (CREATE_NO_WINDOW)
+    // Extract silently without stealing focus
     LOG("Extracting zip: {}", Folder_Path);
-    std::string extractCommand = "powershell.exe -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '" + Folder_Path + "' -DestinationPath '" + Workshop_Dl_Path + "' -Force\"";
-    
-    STARTUPINFOA si = { sizeof(si) };
-    PROCESS_INFORMATION pi = {};
-    si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
-    
-    if (CreateProcessA(NULL, const_cast<char*>(extractCommand.c_str()), NULL, NULL, FALSE,
-                       CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        WaitForSingleObject(pi.hProcess, INFINITE);
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-    }
+    Utils::ExpandArchive(Folder_Path, Workshop_Dl_Path);
 
     int checkTime = 0;
     while (UdkInDirectory(Workshop_Dl_Path) == "Null") {
@@ -750,15 +739,7 @@ void WorkshopDownloader::CreateJSONLocalWorkshopInfos(std::string jsonFileName, 
 
 int WorkshopDownloader::ExtractZipPowerShell(std::string zipFilePath, std::string destinationPath)
 {
-    // Improved PowerShell command with error handling
-    std::string extractCommand =
-        "powershell.exe -ExecutionPolicy Bypass -Command \""
-        "try { Expand-Archive -LiteralPath '" + zipFilePath +
-        "' -DestinationPath '" + destinationPath + "' -Force; exit 0 } "
-        "catch { Write-Error $_.Exception.Message; exit 1 }\"";
-
-    int result = system(extractCommand.c_str());
-    return result;
+    return Utils::ExpandArchive(zipFilePath, destinationPath);
 }
 
 void WorkshopDownloader::RenameFileToUPK(fs::path filePath)

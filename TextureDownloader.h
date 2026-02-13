@@ -4,6 +4,7 @@
 #include <memory>
 #include <filesystem>
 #include <atomic>
+#include <thread>
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 
 class TextureDownloader {
@@ -32,11 +33,16 @@ public:
     // Config
     bool dontAskAgain = false;
 
+    ~TextureDownloader() {
+        if (extractThread.joinable()) extractThread.join();
+    }
+
 private:
     std::shared_ptr<GameWrapper> gameWrapper;
     std::shared_ptr<CVarManagerWrapper> cvarManager;
     std::filesystem::path cookedPCConsolePath;
     std::string bakkesModPath;
+    std::thread extractThread;
 
     // Helper to extract zip files
     void ExtractZip(const std::string& zipPath, const std::string& destPath);

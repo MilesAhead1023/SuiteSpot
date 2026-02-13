@@ -3,6 +3,7 @@
 #include "pch.h"
 #include "TrainingPackManager.h"
 #include "EmbeddedPackGrabber.h"
+#include "ProcessUtils.h"
 
 #include <algorithm>
 #include <chrono>
@@ -196,8 +197,11 @@ void TrainingPackManager::UpdateTrainingPackList(const std::filesystem::path& ou
     LOG("SuiteSpot: Training pack updater starting");
     LOG("SuiteSpot: Output path: {}", outputPath.string());
 
+    // Join previous update thread if still running
+    if (updateThread.joinable()) updateThread.join();
+
     // Launch update in background thread to avoid blocking game thread
-    std::thread updateThread([this, outputPath]() {
+    updateThread = std::thread([this, outputPath]() {
         try {
             // Get temp directory for script extraction
             std::filesystem::path tempDir = std::filesystem::temp_directory_path();
@@ -219,13 +223,10 @@ void TrainingPackManager::UpdateTrainingPackList(const std::filesystem::path& ou
 
             std::string outStr = outputPath.string();
 
-            // Use cmd.exe to launch PowerShell and capture output to log file
-            std::string cmd = "cmd.exe /c powershell.exe -NoProfile -ExecutionPolicy Bypass -File \""
-                            + tempScript.string() + "\" -OutputPath \"" + outStr + "\" > \"" + logFile.string() + "\" 2>&1";
-
             LOG("SuiteSpot: Training pack updater started");
 
-            int result = system(cmd.c_str());
+            std::string scriptArgs = "-OutputPath \"" + outStr + "\"";
+            int result = Utils::RunPowerShellScript(tempScript.string(), scriptArgs, logFile.string());
 
             LOG("SuiteSpot: Training pack updater returned: {}", result);
 
@@ -263,8 +264,6 @@ void TrainingPackManager::UpdateTrainingPackList(const std::filesystem::path& ou
 
         scrapingInProgress = false;
     });
-
-    updateThread.detach();  // Let thread run independently
 }
 
 void TrainingPackManager::FilterAndSortPacks(const std::string& searchText,
@@ -640,13 +639,13 @@ void TrainingPackManager::HealPack(const std::string& code, int shots)
     }
 }
 
-TrainingEntry* TrainingPackManager::GetPackByCode(const std::string& code)
+std::optional<TrainingEntry> TrainingPackManager::GetPackByCode(const std::string& code) const
 {
     std::lock_guard<std::mutex> lock(packMutex);
-    for (auto& pack : RLTraining) {
+    for (const auto& pack : RLTraining) {
         if (pack.code == code) {
-            return &pack;
+            return pack;
         }
     }
-    return nullptr;
+    return std::nullopt;
 }

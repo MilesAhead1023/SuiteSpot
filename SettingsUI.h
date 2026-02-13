@@ -47,6 +47,7 @@ private:
     void RenderFreeplayMode(std::string& currentFreeplayCode);
     void RenderTrainingMode(int trainingModeValue, std::string& currentTrainingCode);
     void RenderWorkshopMode(std::string& currentWorkshopPath);
+    void RenderInstalledMaps(std::string& currentWorkshopPath);
 
     void RenderSinglePackMode(std::string& currentTrainingCode);
     std::vector<std::string> GetQuickPicksList();
@@ -56,7 +57,6 @@ private:
     void RenderTextureCheck();
     void RenderDownloadTexturesPopup(const std::vector<std::string>& missingFiles);
     
-    void RLMAPS_RenderAResult(int i, ImDrawList* drawList, const char* mapspath);
     void RLMAPS_RenderSearchWorkshopResults(const char* mapspath);
     void RenderReleases(RLMAPS_MapResult mapResult, const char* mapspath);
     void RenderAcceptDownload();
@@ -78,7 +78,8 @@ private:
     int selectedWorkshopIndex = -1;  // Currently selected in list
     std::string lastSelectedWorkshopPath;  // Track path to detect changes
     
-    // Cached result list for rendering (to avoid holding mutex during render)
+    // Workshop browser (RLMAPS) state
+    int selectedBrowserIndex = -1;  // Currently selected in browser list
     std::vector<RLMAPS_MapResult> cachedResultList;
     int lastListVersion = -1; // Track version to know when to refresh cache
 

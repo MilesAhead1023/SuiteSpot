@@ -8,6 +8,7 @@
 #include <vector>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 /*
  * ======================================================================================
@@ -32,6 +33,9 @@
 class TrainingPackManager
 {
 public:
+    ~TrainingPackManager() {
+        if (updateThread.joinable()) updateThread.join();
+    }
     // Core data operations
     void LoadPacksFromFile(const std::filesystem::path& filePath);
     bool IsCacheStale(const std::filesystem::path& filePath) const;
@@ -65,7 +69,7 @@ public:
     int GetPackCount() const { return packCount; }
     std::string GetLastUpdated() const { return lastUpdated; }
     bool IsScrapingInProgress() const { return scrapingInProgress; }
-    TrainingEntry* GetPackByCode(const std::string& code);
+    std::optional<TrainingEntry> GetPackByCode(const std::string& code) const;
 
 private:
     void SavePacksToFile(const std::filesystem::path& filePath);
@@ -76,6 +80,7 @@ private:
     std::string lastUpdated = "Never";
     bool scrapingInProgress = false;
     std::filesystem::path currentFilePath;
+    std::thread updateThread;
 };
 
 

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "TextureDownloader.h"
+#include "ProcessUtils.h"
 #include "logging.h"
 #include "bakkesmod/wrappers/http/HttpWrapper.h"
 #include <fstream>
@@ -58,7 +59,7 @@ void TextureDownloader::DownloadAndInstallTextures() {
     LOG("Starting texture download to {}", zipPath);
 
     CurlRequest req;
-    req.url = "https://cdn.discordapp.com/attachments/1062156148054179850/1062156149257932821/Workshop-textures.zip";
+    req.url = "https://drive.usercontent.google.com/download?id=1jklpjfEu4Yw97cjYaMDWRx8H2XFyji6U&export=download&confirm=t";
     req.progress_function = [this](double file_size, double downloaded, ...) {
         if (file_size > 0) {
             downloadProgress = (int)((downloaded / file_size) * 100.0);
@@ -74,13 +75,13 @@ void TextureDownloader::DownloadAndInstallTextures() {
                 LOG("Textures downloaded. Extracting...");
                 
                 // Run extraction in a separate thread to avoid freezing the game
-                std::thread extractThread([this, zipPath]() {
+                if (extractThread.joinable()) extractThread.join();
+                extractThread = std::thread([this, zipPath]() {
                     ExtractZip(zipPath, cookedPCConsolePath.string());
                     LOG("Textures installed successfully.");
                     isDownloading = false;
                     downloadProgress = 0;
                 });
-                extractThread.detach();
             } else {
                 LOG("Failed to save texture zip.");
                 isDownloading = false;
@@ -95,8 +96,8 @@ void TextureDownloader::DownloadAndInstallTextures() {
 }
 
 void TextureDownloader::ExtractZip(const std::string& zipPath, const std::string& destPath) {
-    std::string extractCommand = "powershell.exe Expand-Archive -LiteralPath '" + zipPath + "' -DestinationPath '" + destPath + "' -Force";
-    // system() call is blocking, might freeze UI for a moment during unzip
-    // In future could move to thread
-    system(extractCommand.c_str());
+    int result = Utils::ExpandArchive(zipPath, destPath);
+    if (result != 0) {
+        LOG("Failed to extract textures (exit code {})", result);
+    }
 }

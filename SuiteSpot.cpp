@@ -165,10 +165,8 @@ float SuiteSpot::ConvertMenuPercentToDecimal(float menuValue) {
 
 void SuiteSpot::ApplyTrainingGameSpeedFromMenuValue(float menuValue) {
     officialTrainingGameSpeed = ConvertMenuPercentToDecimal(menuValue);
-    LOG("Captured in-game training speed from settings menu > {}", officialTrainingGameSpeed);
 
     if (!IsTrainingGameSpeedFixEnabled()) {
-        LOG("Training game speed fix is OFF; stored official setting > {} without applying correction", officialTrainingGameSpeed);
         return;
     }
 
@@ -178,11 +176,10 @@ void SuiteSpot::ApplyTrainingGameSpeedFromMenuValue(float menuValue) {
     }
 
     speedCvar.setValue(officialTrainingGameSpeed);
-    LOG("Applied official training speed to sv_soccar_gamespeed > {}", officialTrainingGameSpeed);
+    LOG("Training game speed set to {}", officialTrainingGameSpeed);
 }
 
 void SuiteSpot::LoadTrainingGameSpeedHooks() {
-    LOG("Registering training game speed menu hook");
     gameWrapper->HookEventWithCaller<ActorWrapper>(
         "Function TAGame.GFxData_Settings_TA.SetTrainingGameSpeed",
         [this](ActorWrapper caller, void* params, std::string eventName) {
@@ -190,17 +187,18 @@ void SuiteSpot::LoadTrainingGameSpeedHooks() {
                 return;
             }
 
-            // BakkesMod params point directly to the first parameter (no padding)
-            // SetTrainingGameSpeed has a single float parameter
-            float rawValue = *reinterpret_cast<float*>(params);
-            LOG("Raw training speed value from menu: {}", rawValue);
+            // SetTrainingGameSpeed params have 8 bytes of padding before the float
+            struct SetTrainingGameSpeedParams {
+                unsigned char _pad[0x8];
+                float value;
+            };
+            float rawValue = reinterpret_cast<SetTrainingGameSpeedParams*>(params)->value;
 
             ApplyTrainingGameSpeedFromMenuValue(rawValue);
         });
 }
 
 void SuiteSpot::UnloadTrainingGameSpeedHooks() {
-    LOG("Unregistering training game speed menu hook");
     gameWrapper->UnhookEvent("Function TAGame.GFxData_Settings_TA.SetTrainingGameSpeed");
 }
 
@@ -225,6 +223,7 @@ void SuiteSpot::LoadHooks() {
     gameWrapper->HookEventPost(
         "Function TAGame.GameEvent_TrainingEditor_TA.OnInit",
         [this](std::string eventName) {
+            if (!IsEnabled()) return;
             LOG("Hook triggered: GameEvent_TrainingEditor_TA.OnInit");
             gameWrapper->SetTimeout([this](GameWrapper* gw) {
                 TryHealCurrentPack(gw);
@@ -263,6 +262,8 @@ void SuiteSpot::LoadHooks() {
 // external commands (load_freeplay, queue, etc.) are run relative to
 // overlay presentation.
 void SuiteSpot::GameEndedEvent(std::string name) {
+    if (!IsEnabled()) return;
+    
     LOG("SuiteSpot: GameEndedEvent triggered by hook: {}", name);
 
     // 1. Run Auto-Load/Queue Logic first (Independent of overlay)
