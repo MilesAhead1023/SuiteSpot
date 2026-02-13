@@ -964,6 +964,13 @@ void SettingsUI::RLMAPS_RenderAResult(int i, ImDrawList* drawList, const char* m
                     // Load image and store in cache
                     try {
                         image = std::make_shared<ImageWrapper>(mapResult.ImagePath.string(), false, true);
+                        
+                        // Limit cache size to prevent unbounded memory growth (max 150 images)
+                        if (workshopImageCache.size() >= 150) {
+                            // Remove first (oldest) entry when cache is full
+                            workshopImageCache.erase(workshopImageCache.begin());
+                        }
+                        
                         workshopImageCache[mapResult.ID] = image;
                     } catch (...) {
                         // Failed to load image
