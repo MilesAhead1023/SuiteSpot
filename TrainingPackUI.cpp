@@ -445,8 +445,8 @@ void TrainingPackUI::Render() {
             ImGui::PushID(pack.code.c_str());
 
             // Play Button (if video exists)
+            bool videoClicked = false;
             if (!pack.videoUrl.empty()) {
-                bool clicked = false;
                 if (youtubeIcon && youtubeIcon->IsLoadedForImGui()) {
                     // Use Image with InvisibleButton overlay to remove border
                     // Use text line height instead of frame height for tighter fit
@@ -458,18 +458,20 @@ void TrainingPackUI::Render() {
                     // Overlay invisible button for click detection (form-fit to icon)
                     ImGui::SetCursorScreenPos(cursorPos);
                     if (ImGui::InvisibleButton("##youtube", ImVec2(iconSize, iconSize))) {
-                        clicked = true;
+                        videoClicked = true;
                     }
                 } else {
                     if (ImGui::ArrowButton("##play", ImGuiDir_Right)) {
-                        clicked = true;
+                        videoClicked = true;
                     }
                 }
 
-                if (clicked) {
+                if (videoClicked) {
                     ShellExecuteA(NULL, "open", pack.videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
                 }
                 if (ImGui::IsItemHovered()) ImGui::SetTooltip("Watch Preview");
+                
+                ImGui::SetItemAllowOverlap();
                 ImGui::SameLine();
             } else {
                 // Indent to align with packs that have buttons (approximate width of button + Spacing)
@@ -478,7 +480,7 @@ void TrainingPackUI::Render() {
             }
 
             // SpanAllColumns allows clicking anywhere in the row
-            if (ImGui::Selectable(pack.name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns)) {
+            if (ImGui::Selectable(pack.name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns) && !videoClicked) {
                 selectedPackCode = pack.code;
                 lastSelectedRowIndex = row;
                 ImGui::OpenPopup("PackActionPopup");
