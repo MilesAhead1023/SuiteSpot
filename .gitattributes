@@ -15,11 +15,15 @@
 *.targets         text eol=crlf
 
 # Scripts
-*.ps1 text eol=crlf
-*.bat text eol=crlf
-*.cmd text eol=crlf
-*.yml text eol=lf
+*.ps1  text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.sh   text eol=lf
+*.yml  text eol=lf
 *.yaml text eol=lf
+
+# Git hooks — must stay LF to execute on Linux
+.githooks/* text eol=lf
 
 # Config/data/docs - LF
 *.json text eol=lf
