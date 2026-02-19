@@ -51,7 +51,7 @@ SortIncludes: false
 IncludeBlocks: Preserve
 
 # Spacing
-SpaceBefore​Parentheses: ControlStatements
+SpaceBeforeParens: ControlStatements
 SpaceBeforeAssignmentOperators: true
 SpaceBeforeCpp11BracedList: false
 SpaceInEmptyParentheses: false
