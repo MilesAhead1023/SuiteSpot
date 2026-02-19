@@ -457,3 +457,6 @@ docs/doxygen/
 # Test build artifacts
 tests/*.o
 tests/suitespot_tests
+
+# vcpkg manifest mode output — written by CI and local builds, never committed
+vcpkg_installed/

@@ -6,26 +6,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 SuiteSpot is a BakkesMod plugin for Rocket League that automatically loads training content (training packs, freeplay maps, or workshop maps) after matches end. It's a C++20 Windows x64 DLL that integrates with BakkesMod's SDK.
 
-## Build Commands
+## Build System — Two Separate Pipelines
 
-**Build from WSL2 (targeting the Windows-side project):**
+There are two completely independent build pipelines. They must never be mixed.
+
+| | Local build | CI build (GitHub Actions) |
+|---|---|---|
+| **Where** | `C:\Users\bmile\Source\Repos\SuiteSpot` | GitHub runner (`D:\a\...`) |
+| **Trigger** | Manual (dev machine) | Push / PR to any branch |
+| **BakkesMod SDK** | `%AppData%\bakkesmod\bakkesmod\bakkesmodsdk` via registry | Cloned into `bakkesmodsdk/` at build time |
+| **vcpkg** | `C:\Users\bmile\vcpkg` (`VCPKG_ROOT` env var) | `C:\vcpkg` (pre-installed on runner) |
+| **Post-build** | Hot-reloads plugin into live BakkesMod | No — artifact uploaded only |
+| **Intermediates** | `build\.intermediates\` | Same, but discarded after run |
+| **Output** | `plugins\SuiteSpot.dll` → copied to `%AppData%\bakkesmod` | Uploaded as GitHub Actions artifact |
+
+**Key isolation rules:**
+- `bakkesmodsdk/` is gitignored — CI clones it fresh, local uses the registry path
+- `vcpkg_installed/` is gitignored — each environment manages its own package cache
+- `build/` intermediates are gitignored — never shared between environments
+- `plugins/*.dll` is gitignored — local output never committed
+
+### Local build (from WSL2)
 ```bash
-# IMPORTANT: Build must target the Windows filesystem copy — MSVC cannot write
-# intermediates to WSL2 UNC paths (\\wsl.localhost\...). Always build from
-# C:\Users\bmile\Source\Repos\SuiteSpot, not /home/bmile/SuiteSpot.
+# IMPORTANT: MSVC cannot write intermediates to WSL2 UNC paths.
+# Always target the Windows filesystem copy, not /home/bmile/SuiteSpot.
 WIN_SLN=$(wslpath -w /mnt/c/Users/bmile/Source/Repos/SuiteSpot/SuiteSpot.sln)
 "/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" \
   "$WIN_SLN" /p:Configuration=Release /p:Platform=x64 /v:minimal
 ```
 
-**Build from Windows PowerShell:**
+### Local build (from Windows PowerShell)
 ```powershell
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' SuiteSpot.sln /p:Configuration=Release /p:Platform=x64 /v:minimal
-```
-
-**Build the plugin (generic — requires MSBuild on PATH):**
-```bash
-msbuild SuiteSpot.sln /p:Configuration=Release /p:Platform=x64
 ```
 
 **CI build (clones BakkesMod SDK):**
