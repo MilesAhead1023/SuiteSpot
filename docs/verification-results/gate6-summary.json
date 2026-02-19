@@ -1,0 +1,88 @@
+{
+  "status": "PASS",
+  "timestamp": "2026-02-13T02:39:22Z",
+  "apiStatus": "API_WORKING",
+  "summary": {
+    "failed": 0,
+    "totalTests": 5,
+    "partial": 1,
+    "passed": 4,
+    "apiWorking": true
+  },
+  "name": "API Contract Testing",
+  "jsonStructure": {
+    "fields": [
+      "id",
+      "name",
+      "version",
+      "package_type",
+      "status",
+      "created_at",
+      "tags",
+      "pipeline",
+      "pipelines",
+      "_links"
+    ],
+    "extractCapabilities": {
+      "packageVersion": "✅ Yes - via 'version' field",
+      "imageConstruction": "✅ Yes - from name + version",
+      "packageName": "✅ Yes - via 'name' field"
+    }
+  },
+  "tests": {
+    "multiProject": {
+      "allSuccessful": true,
+      "projectsTested": 3,
+      "name": "Multiple Project IDs",
+      "projectIds": [
+        1369,
+        1368,
+        1367
+      ],
+      "status": "PASS"
+    },
+    "errorHandling": {
+      "invalidProjectId": 99999999,
+      "expectedStatusCode": 404,
+      "actualStatusCode": 404,
+      "name": "Error Response Handling",
+      "status": "PASS"
+    },
+    "rateLimiting": {
+      "status": "PASS",
+      "requestsAttempted": 10,
+      "noThrottling": true,
+      "name": "Rate Limiting Test",
+      "averageResponseTimeMs": 293.12,
+      "requestsSuccessful": 10
+    },
+    "packageEndpoint": {
+      "httpCode": 200,
+      "details": "Returns valid JSON array of packages",
+      "name": "GET /packages Endpoint",
+      "status": "PASS"
+    },
+    "imageURLConstruction": {
+      "dataExtractable": true,
+      "status": "PARTIAL",
+      "name": "Image URL Construction",
+      "imageAccessible": false,
+      "note": "URL format valid, images not accessible (possible DNS issue)",
+      "urlFormatValid": true
+    }
+  },
+  "gate": 6,
+  "details": {
+    "endpoint": "https://celab.jetfox.ovh/api/v4",
+    "averageResponseTime": "293ms",
+    "testProjectIds": [
+      1369,
+      1368,
+      1367
+    ],
+    "responseFormat": "JSON",
+    "noRateLimiting": true,
+    "protocolVersion": "v4",
+    "projectsAvailable": 20
+  }
+}

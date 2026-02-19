@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuiteSpot GUI 1:1 Replica</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="workspace">
+    <section class="replica-shell">
+      <div class="window" id="windowRoot">
+        <div class="titlebar">Rocket League (64-bit, DX11, Cooked)</div>
+        <div class="settings-bar">Bakkesmod settings</div>
+        <div class="main-tabs" id="mainTabs"></div>
+
+        <div class="content-grid">
+          <aside class="sidebar">
+            <div class="sidebar-title">Plugin manager (</div>
+            <div class="plugin-list" id="pluginList"></div>
+          </aside>
+
+          <section class="panel">
+            <header class="plugin-header">
+              <div class="plugin-meta">
+                <div class="plugin-name" id="pluginName" contenteditable="true">SuiteSpot</div>
+                <div class="meta-line" id="pluginByline" contenteditable="true">By: Flicks Creations</div>
+                <div class="meta-line" id="pluginVersion" contenteditable="true">Version: 1.0.0.780</div>
+                <div class="meta-line" id="pluginBuild" contenteditable="true">Built: Feb. 13, 2026 2:50:40 AM</div>
+              </div>
+              <div class="clock" id="clock">12:45:00pm</div>
+              <div class="header-right"><button class="btn" data-editable data-edit-id="load_now_btn">LOAD NOW</button></div>
+            </header>
+
+            <div class="status-row" id="statusRow" data-editable data-edit-id="status_row"></div>
+
+            <div class="general-row">
+              <label data-editable data-edit-id="enable_label"><input type="checkbox" id="enabledToggle" checked /> Enable SuiteSpot</label>
+              <div class="mode-group" data-editable data-edit-id="mode_group">
+                <span>Map Mode:</span>
+                <label><input type="radio" name="mode" value="freeplay" /> Freeplay</label>
+                <label><input type="radio" name="mode" value="training" /> Training</label>
+                <label><input type="radio" name="mode" value="workshop" /> Workshop</label>
+              </div>
+            </div>
+
+            <label class="fix-row" data-editable data-edit-id="fix_speed"><input type="checkbox" checked /> Fix Training Game Speed</label>
+            <div class="subtabs" id="subtabs"></div>
+            <div class="subpanel" id="subpanel"></div>
+          </section>
+        </div>
+
+        <div class="browser-overlay" id="browserOverlay"></div>
+      </div>
+    </section>
+
+    <section class="editor-tools">
+      <div class="editor-line">
+        <label>Screenshot Preset:
+          <select id="presetSelect"></select>
+        </label>
+        <button id="applyPreset">Apply</button>
+        <button id="exportBtn">Export JSON</button>
+        <button id="importBtn">Import JSON</button>
+        <button id="generateConstantsPatchBtn">Generate Constants Patch</button>
+      </div>
+
+      <div class="editor-grid">
+        <label>Status<input id="editStatus" type="text" /></label>
+        <label>Quick Header<input id="editQuickHeader" type="text" /></label>
+        <label>Freeplay Map<input id="editFreeplayMap" type="text" /></label>
+        <label>Plugin List (one per line)<textarea id="editPlugins"></textarea></label>
+        <label>Training Packs (name|shots|desc per line)<textarea id="editPacks"></textarea></label>
+        <label>Workshop Maps (one per line)<textarea id="editWorkshop"></textarea></label>
+        <label>Browser Rows (name|difficulty|shots|likes|plays per line)<textarea id="editBrowserRows"></textarea></label>
+      </div>
+
+      <textarea id="constantsPatchOutput" placeholder="Generated ConstantsUI.h patch preview appears here"></textarea>
+      <textarea id="stateJson"></textarea>
+    </section>
+  </main>
+
+  <div id="widgetPopup" class="widget-popup hidden">
+    <div class="widget-popup-title">Widget Inspector</div>
+    <label>Content<input id="widgetContentInput" type="text" /></label>
+    <div class="widget-popup-grid">
+      <label>Text<input id="widgetTextColorInput" type="color" /></label>
+      <label>BG<input id="widgetBgColorInput" type="color" /></label>
+      <label>Border<input id="widgetBorderColorInput" type="color" /></label>
+      <label>Font(px)<input id="widgetFontSizeInput" type="number" min="8" max="72" /></label>
+      <label>Width(px)<input id="widgetWidthInput" type="number" min="0" max="2000" /></label>
+      <label>Height(px)<input id="widgetHeightInput" type="number" min="0" max="2000" /></label>
+      <label>Padding(px)<input id="widgetPaddingInput" type="number" min="0" max="64" /></label>
+      <label>Radius(px)<input id="widgetRadiusInput" type="number" min="0" max="64" /></label>
+    </div>
+    <div class="widget-popup-actions">
+      <button id="widgetResetBtn" type="button">Reset Widget</button>
+      <button id="widgetCloseBtn" type="button">Close</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

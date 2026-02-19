@@ -428,6 +428,7 @@ ContextForAI/
 # BakkesMod SDK (reference only - actual SDK comes from AppData via registry)
 bakkesmodsdk/
 # Claude-flow generated
+.claude-flow/
 .swarm/
 agents/
 vectors.db
@@ -443,3 +444,9 @@ _codeql_detected_source_root
 
 # Git worktrees (isolated development workspaces)
 .worktrees/
+
+# Package manager lock files (use package-lock.json)
+pnpm-lock.yaml
+
+# Windows null device (shows as untracked on Windows)
+nul
