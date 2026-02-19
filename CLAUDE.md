@@ -8,7 +8,17 @@ SuiteSpot is a BakkesMod plugin for Rocket League that automatically loads train
 
 ## Build Commands
 
-**Build the plugin (local):**
+**Build from WSL2 (targeting the Windows-side project):**
+```bash
+# IMPORTANT: Build must target the Windows filesystem copy — MSVC cannot write
+# intermediates to WSL2 UNC paths (\\wsl.localhost\...). Always build from
+# C:\Users\bmile\Source\Repos\SuiteSpot, not /home/bmile/SuiteSpot.
+WIN_SLN=$(wslpath -w /mnt/c/Users/bmile/Source/Repos/SuiteSpot/SuiteSpot.sln)
+"/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" \
+  "$WIN_SLN" /p:Configuration=Release /p:Platform=x64 /v:minimal
+```
+
+**Build from Windows PowerShell:**
 ```powershell
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' SuiteSpot.sln /p:Configuration=Release /p:Platform=x64 /v:minimal
 ```
