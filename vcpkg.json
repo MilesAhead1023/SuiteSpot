@@ -29,6 +29,6 @@
       "description": "WebSocket client — enables real-time data feeds (live pack leaderboards, community events, stat streaming)"
     }
   ],
-  "builtin-baseline": "2024-01-11",
+  "builtin-baseline": "1940ee77e81573713c0d364c42f5990172198be1",
   "overrides": []
 }
