@@ -1,0 +1,65 @@
+# SuiteSpot Doxygen Configuration
+# Run: doxygen Doxyfile
+# Output: docs/doxygen/html/index.html
+
+PROJECT_NAME           = "SuiteSpot"
+PROJECT_BRIEF          = "BakkesMod plugin — post-match training automation for Rocket League"
+PROJECT_NUMBER         = 3.0
+OUTPUT_DIRECTORY       = docs/doxygen
+CREATE_SUBDIRS         = NO
+
+# Input
+INPUT                  = . IMGUI
+FILE_PATTERNS          = *.cpp *.h
+EXCLUDE                = tests/ build/ plugins/ node_modules/ docs/
+EXCLUDE_PATTERNS       = */imgui_impl_* */imgui_demo* */imgui_draw* \
+                         */imgui_widgets* */imstb_* */imgui_stdlib*
+RECURSIVE              = YES
+EXTENSION_MAPPING      =
+
+# Extraction — pull undocumented members too so agents see the full surface
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+SHOW_INCLUDE_FILES     = YES
+SHOW_USED_FILES        = YES
+
+# Output formats
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_COLORSTYLE        = LIGHT
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+XML_OUTPUT             = xml
+
+# Graphs — call graphs help AI agents trace Hub↔Spoke relationships
+HAVE_DOT               = NO
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+
+# Preprocessing — resolve conditional compilation
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = _WIN32 _WIN64 NDEBUG
+
+# Source browsing
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+STRIP_CODE_COMMENTS    = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+# Warnings
+QUIET                  = NO
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_NO_PARAMDOC       = NO
+
+# Search
+SEARCHENGINE           = YES

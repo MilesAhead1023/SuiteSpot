@@ -1,0 +1,38 @@
+#!/bin/bash
+# SuiteSpot pre-commit hook
+# Runs clang-format on staged C++ files.
+# Lightweight — no build required.
+
+set -e
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h)$' | grep -v '^IMGUI/' | grep -v '^imgui/' || true)
+
+if [ -z "$STAGED" ]; then
+    exit 0
+fi
+
+if ! command -v clang-format &>/dev/null; then
+    echo "[pre-commit] clang-format not found — skipping format check"
+    exit 0
+fi
+
+FAILED=()
+for FILE in $STAGED; do
+    FORMATTED=$(clang-format --style=file "$FILE")
+    ORIGINAL=$(cat "$FILE")
+    if [ "$FORMATTED" != "$ORIGINAL" ]; then
+        FAILED+=("$FILE")
+    fi
+done
+
+if [ ${#FAILED[@]} -gt 0 ]; then
+    echo "[pre-commit] clang-format violations in:"
+    for F in "${FAILED[@]}"; do
+        echo "  $F"
+        clang-format --style=file -i "$F"
+        git add "$F"
+    done
+    echo "[pre-commit] Files auto-formatted and re-staged."
+fi
+
+exit 0

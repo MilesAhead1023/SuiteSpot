@@ -450,3 +450,10 @@ pnpm-lock.yaml
 
 # Windows null device (shows as untracked on Windows)
 nul
+
+# Doxygen generated output
+docs/doxygen/
+
+# Test build artifacts
+tests/*.o
+tests/suitespot_tests

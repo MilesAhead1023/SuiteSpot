@@ -1,0 +1,34 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "suitespot",
+  "version": "1.0.0",
+  "description": "BakkesMod plugin for Rocket League — post-match training automation",
+  "dependencies": [
+    {
+      "name": "sqlite3",
+      "description": "Persistent storage — replace/augment JSON flat files for pack stats, usage history, and future relational data"
+    },
+    {
+      "name": "spdlog",
+      "description": "Structured, level-filtered logging with file sink — augments the existing LOG() macros with rotation and observability"
+    },
+    {
+      "name": "fmt",
+      "description": "Fast, type-safe string formatting — already used indirectly via spdlog; explicit inclusion enables standalone use"
+    },
+    {
+      "name": "nlohmann-json",
+      "description": "Managed replacement for the vendored IMGUI/json.hpp — identical API, keeps vcpkg as the single source of truth"
+    },
+    {
+      "name": "openssl",
+      "description": "TLS/HTTPS support for future direct HTTP integrations outside BakkesMod HttpWrapper (e.g. auth flows, signed requests)"
+    },
+    {
+      "name": "ixwebsocket",
+      "description": "WebSocket client — enables real-time data feeds (live pack leaderboards, community events, stat streaming)"
+    }
+  ],
+  "builtin-baseline": "2024-01-11",
+  "overrides": []
+}

@@ -1,0 +1,73 @@
+# SuiteSpot clang-tidy configuration
+# Focused on correctness for a BakkesMod game plugin:
+# thread safety, modern C++20, pointer safety, ImGui layout rules.
+# Intentionally permissive on style — clang-format handles that.
+
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-lambda-function-name,
+  clang-analyzer-core.*,
+  clang-analyzer-cplusplus.*,
+  clang-analyzer-deadcode.DeadStores,
+  concurrency-*,
+  cppcoreguidelines-avoid-goto,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-no-malloc,
+  cppcoreguidelines-prefer-member-initializer,
+  cppcoreguidelines-pro-type-cstyle-cast,
+  cppcoreguidelines-slicing,
+  misc-unused-parameters,
+  misc-use-anonymous-namespace,
+  modernize-loop-convert,
+  modernize-make-shared,
+  modernize-make-unique,
+  modernize-pass-by-value,
+  modernize-use-auto,
+  modernize-use-default-member-init,
+  modernize-use-emplace,
+  modernize-use-nodiscard,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-using,
+  performance-avoid-endl,
+  performance-faster-string-find,
+  performance-for-range-copy,
+  performance-inefficient-string-concatenation,
+  performance-move-const-arg,
+  performance-move-constructor-init,
+  performance-no-automatic-move,
+  performance-unnecessary-copy-initialization,
+  performance-unnecessary-value-param,
+  readability-container-size-empty,
+  readability-delete-null-pointer,
+  readability-make-member-function-const,
+  readability-redundant-member-init,
+  readability-redundant-smartptr-get,
+  readability-simplify-boolean-expr,
+  readability-string-compare
+
+WarningsAsErrors: ''
+
+HeaderFilterRegex: '^/home/bmile/SuiteSpot/(?!IMGUI|imgui).*\.(h|hpp)$'
+
+CheckOptions:
+  - key: modernize-use-auto.MinTypeNameLength
+    value: '5'
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: CamelCase
+  - key: readability-identifier-naming.VariableCase
+    value: camelCase
+  - key: readability-identifier-naming.MemberCase
+    value: camelCase
+  - key: readability-identifier-naming.ConstantCase
+    value: UPPER_CASE
+
+# Suppress third-party and SDK headers from analysis
+ExtraArgs:
+  - -isystem/mnt/c/Users/bmile/AppData/Roaming/bakkesmod/bakkesmod/bakkesmodsdk/include
+  - -isystem/mnt/c/Users/bmile/vcpkg/installed/x64-windows/include
+  - -isystem/home/bmile/SuiteSpot/IMGUI
