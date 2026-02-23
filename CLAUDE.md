@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ HARD CONSTRAINT: Windows-Only Paths
+
+**DO NOT EVER:**
+- Use `/home/bmile`, `/mnt/c`, `//wsl.localhost`, or any WSL path
+- Switch to WSL directory or suggest it as alternative
+- Build from Linux paths
+- This is enforced by a hard gate hook in `~/.claude/settings.json`
+
+**ALWAYS:**
+- Use ONLY: `C:\Users\bmile\Source\Repos\SuiteSpot`
+- When building from WSL2, convert the path using `wslpath -w` before calling MSBuild
+
+---
+
 ## Project Overview
 
 SuiteSpot is a BakkesMod plugin for Rocket League that automatically loads training content (training packs, freeplay maps, or workshop maps) after matches end. It's a C++20 Windows x64 DLL that integrates with BakkesMod's SDK.

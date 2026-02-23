@@ -25,10 +25,10 @@
 
 class SettingsSync
 {
-public:
+  public:
     // Tells BakkesMod about all our settings
     void RegisterAllCVars(const std::shared_ptr<CVarManagerWrapper>& cvarManager);
-    
+
     // Getters: Fast, safe ways to ask "Is this feature on?"
     bool IsEnabled() const { return enabled; }
     int GetMapType() const { return mapType; }
@@ -53,13 +53,20 @@ public:
     std::string GetQuickPicksSelectedCode() const { return quickPicksSelected; }
     std::string GetCurrentWorkshopPath() const { return currentWorkshopPath; }
 
+    // Hotkey getters
+    int GetHotkeyMapModeForward() const { return hotkeyMapModeForward; }
+    int GetHotkeyMapModeBackward() const { return hotkeyMapModeBackward; }
+    int GetHotkeyCycleMapForward() const { return hotkeyCycleMapForward; }
+    int GetHotkeyCycleMapBackward() const { return hotkeyCycleMapBackward; }
+    int GetHotkeyLoadNow() const { return hotkeyLoadNow; }
+
     // Setters: Update the local value (used when loading data)
     void SetCurrentFreeplayCode(const std::string& code);
     void SetCurrentTrainingCode(const std::string& code);
     void SetQuickPicksSelected(const std::string& code);
     void SetCurrentWorkshopPath(const std::string& path);
 
-private:
+  private:
     // Local copies of settings for fast access
     bool enabled = false;
     int mapType = 0; // 0=Freeplay, 1=Training, 2=Workshop
@@ -76,7 +83,14 @@ private:
 
     bool autoDownloadTextures = false;
 
-    std::string currentFreeplayCode;   // Freeplay map code (e.g., "beckwith_park_p")
-    std::string currentTrainingCode;   // Training pack code (e.g., "XXXX-XXXX-XXXX-XXXX")
-    std::string currentWorkshopPath;   // Workshop map path (e.g., "C:/path/to/map.udk")
+    std::string currentFreeplayCode; // Freeplay map code (e.g., "beckwith_park_p")
+    std::string currentTrainingCode; // Training pack code (e.g., "XXXX-XXXX-XXXX-XXXX")
+    std::string currentWorkshopPath; // Workshop map path (e.g., "C:/path/to/map.udk")
+
+    // Hotkey bindings (stored as key codes)
+    int hotkeyMapModeForward = 0; // Default: unbound
+    int hotkeyMapModeBackward = 0;
+    int hotkeyCycleMapForward = 0;
+    int hotkeyCycleMapBackward = 0;
+    int hotkeyLoadNow = 0;
 };

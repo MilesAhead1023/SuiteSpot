@@ -27,7 +27,7 @@
 
 class MapManager
 {
-public:
+  public:
     MapManager();
 
     // Finds the main "Data" folder where we save our stuff
@@ -50,20 +50,36 @@ public:
     // Workshop Helpers
     std::filesystem::path GetWorkshopLoaderConfigPath() const;
     std::filesystem::path ResolveConfiguredWorkshopRoot() const;
-    
+
     // The big scanner: Finds maps in a folder and adds them to the list
     void DiscoverWorkshopInDir(const std::filesystem::path& dir, std::vector<WorkshopEntry>& outList) const;
 
     // Refreshes the list of maps
     void LoadWorkshopMaps(std::vector<WorkshopEntry>& outList, int& currentIndex);
 
-private:
+    // Hotkey cycling methods (used by hotkey system)
+    // Note: These methods update internal indices and should be followed by
+    // SettingsSync CVar updates to persist the selection
+    void CycleMapMode(bool forward); // Cycle between Freeplay/Training/Workshop
+    void CycleMap(bool forward);     // Cycle within current map type
+
+    // Get current indices for cycling
+    int GetCurrentMapModeIndex() const { return currentMapModeIndex; }
+    int GetCurrentFreeplayIndex() const { return currentFreeplayIndex; }
+    int GetCurrentTrainingIndex() const { return currentTrainingIndex; }
+    int GetCurrentWorkshopIndex() const { return currentWorkshopIndex; }
+
+  private:
     std::filesystem::path dataRoot;
 
+    // Cycling indices
+    int currentMapModeIndex = 0; // 0=Freeplay, 1=Training, 2=Workshop
+    int currentFreeplayIndex = 0;
+    int currentTrainingIndex = 0;
+    int currentWorkshopIndex = 0;
+
     // Parse workshop JSON metadata file
-    bool LoadWorkshopMetadata(const std::filesystem::path& jsonPath,
-                              std::string& outTitle,
-                              std::string& outAuthor,
+    bool LoadWorkshopMetadata(const std::filesystem::path& jsonPath, std::string& outTitle, std::string& outAuthor,
                               std::string& outDescription) const;
 
     // Find preview image in workshop folder (.jfif, .jpg, .png)

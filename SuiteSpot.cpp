@@ -45,35 +45,42 @@
  */
 
 // ===== SuiteSpot persistence helpers =====
-std::filesystem::path SuiteSpot::GetDataRoot() const {
+std::filesystem::path SuiteSpot::GetDataRoot() const
+{
     return mapManager ? mapManager->GetDataRoot() : std::filesystem::path();
 }
 
-std::filesystem::path SuiteSpot::GetSuiteTrainingDir() const {
+std::filesystem::path SuiteSpot::GetSuiteTrainingDir() const
+{
     return mapManager ? mapManager->GetSuiteTrainingDir() : std::filesystem::path();
 }
 
-void SuiteSpot::EnsureDataDirectories() const {
+void SuiteSpot::EnsureDataDirectories() const
+{
     if (mapManager) {
         mapManager->EnsureDataDirectories();
     }
 }
 
-std::filesystem::path SuiteSpot::GetWorkshopLoaderConfigPath() const {
+std::filesystem::path SuiteSpot::GetWorkshopLoaderConfigPath() const
+{
     return mapManager ? mapManager->GetWorkshopLoaderConfigPath() : std::filesystem::path();
 }
 
-std::filesystem::path SuiteSpot::ResolveConfiguredWorkshopRoot() const {
+std::filesystem::path SuiteSpot::ResolveConfiguredWorkshopRoot() const
+{
     return mapManager ? mapManager->ResolveConfiguredWorkshopRoot() : std::filesystem::path();
 }
 
-void SuiteSpot::DiscoverWorkshopInDir(const std::filesystem::path& dir) {
+void SuiteSpot::DiscoverWorkshopInDir(const std::filesystem::path& dir)
+{
     if (mapManager) {
         mapManager->DiscoverWorkshopInDir(dir, RLWorkshop);
     }
 }
 
-void SuiteSpot::LoadWorkshopMaps() {
+void SuiteSpot::LoadWorkshopMaps()
+{
     if (mapManager) {
         // Load workshop maps without passing an index - the path-based selection persists automatically
         int unused = 0;
@@ -82,47 +89,58 @@ void SuiteSpot::LoadWorkshopMaps() {
 }
 
 // ===== TRAINING PACK UPDATE INTEGRATION =====
-bool SuiteSpot::IsEnabled() const {
+bool SuiteSpot::IsEnabled() const
+{
     return settingsSync ? settingsSync->IsEnabled() : false;
 }
 
-bool SuiteSpot::IsAutoQueueEnabled() const {
+bool SuiteSpot::IsAutoQueueEnabled() const
+{
     return settingsSync ? settingsSync->IsAutoQueue() : false;
 }
 
-bool SuiteSpot::IsTrainingGameSpeedFixEnabled() const {
+bool SuiteSpot::IsTrainingGameSpeedFixEnabled() const
+{
     return settingsSync ? settingsSync->IsTrainingGameSpeedFixEnabled() : true;
 }
 
-int SuiteSpot::GetMapType() const {
+int SuiteSpot::GetMapType() const
+{
     return settingsSync ? settingsSync->GetMapType() : 0;
 }
 
-int SuiteSpot::GetDelayQueueSec() const {
+int SuiteSpot::GetDelayQueueSec() const
+{
     return settingsSync ? settingsSync->GetDelayQueueSec() : 0;
 }
 
-int SuiteSpot::GetDelayFreeplaySec() const {
+int SuiteSpot::GetDelayFreeplaySec() const
+{
     return settingsSync ? settingsSync->GetDelayFreeplaySec() : 0;
 }
 
-int SuiteSpot::GetDelayTrainingSec() const {
+int SuiteSpot::GetDelayTrainingSec() const
+{
     return settingsSync ? settingsSync->GetDelayTrainingSec() : 0;
 }
 
-int SuiteSpot::GetDelayWorkshopSec() const {
+int SuiteSpot::GetDelayWorkshopSec() const
+{
     return settingsSync ? settingsSync->GetDelayWorkshopSec() : 0;
 }
 
-std::string SuiteSpot::GetCurrentFreeplayCode() const {
+std::string SuiteSpot::GetCurrentFreeplayCode() const
+{
     return settingsSync ? settingsSync->GetCurrentFreeplayCode() : "";
 }
 
-std::string SuiteSpot::GetCurrentTrainingCode() const {
+std::string SuiteSpot::GetCurrentTrainingCode() const
+{
     return settingsSync ? settingsSync->GetCurrentTrainingCode() : "";
 }
 
-std::string SuiteSpot::GetCurrentWorkshopPath() const {
+std::string SuiteSpot::GetCurrentWorkshopPath() const
+{
     return settingsSync ? settingsSync->GetCurrentWorkshopPath() : "";
 }
 
@@ -145,7 +163,8 @@ std::string SuiteSpot::GetCurrentWorkshopPath() const {
 // DO NOT CHANGE: Modifying the background thread logic or the way the
 // result is checked could resurface race conditions that previously
 // required this exact coordination.
-void SuiteSpot::UpdateTrainingPackList() {
+void SuiteSpot::UpdateTrainingPackList()
+{
     if (trainingPackMgr) {
         trainingPackMgr->UpdateTrainingPackList(GetTrainingPacksPath(), gameWrapper);
     }
@@ -155,7 +174,8 @@ BAKKESMOD_PLUGIN(SuiteSpot, "SuiteSpot", plugin_version, PLUGINTYPE_FREEPLAY)
 
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 
-float SuiteSpot::ConvertMenuPercentToDecimal(float menuValue) {
+float SuiteSpot::ConvertMenuPercentToDecimal(float menuValue)
+{
     if (!std::isfinite(menuValue)) {
         return 1.0f;
     }
@@ -163,7 +183,8 @@ float SuiteSpot::ConvertMenuPercentToDecimal(float menuValue) {
     return std::clamp(menuValue, 0.01f, 10.0f);
 }
 
-void SuiteSpot::ApplyTrainingGameSpeedFromMenuValue(float menuValue) {
+void SuiteSpot::ApplyTrainingGameSpeedFromMenuValue(float menuValue)
+{
     officialTrainingGameSpeed = ConvertMenuPercentToDecimal(menuValue);
 
     if (!IsTrainingGameSpeedFixEnabled()) {
@@ -179,72 +200,63 @@ void SuiteSpot::ApplyTrainingGameSpeedFromMenuValue(float menuValue) {
     LOG("Training game speed set to {}", officialTrainingGameSpeed);
 }
 
-void SuiteSpot::LoadTrainingGameSpeedHooks() {
-    gameWrapper->HookEventWithCaller<ActorWrapper>(
-        "Function TAGame.GFxData_Settings_TA.SetTrainingGameSpeed",
-        [this](ActorWrapper caller, void* params, std::string eventName) {
-            if (params == nullptr) {
-                return;
-            }
+void SuiteSpot::LoadTrainingGameSpeedHooks()
+{
+    gameWrapper->HookEventWithCaller<ActorWrapper>("Function TAGame.GFxData_Settings_TA.SetTrainingGameSpeed",
+                                                   [this](ActorWrapper caller, void* params, std::string eventName) {
+                                                       if (params == nullptr) {
+                                                           return;
+                                                       }
 
-            // SetTrainingGameSpeed params have 8 bytes of padding before the float
-            struct SetTrainingGameSpeedParams {
-                unsigned char _pad[0x8];
-                float value;
-            };
-            float rawValue = reinterpret_cast<SetTrainingGameSpeedParams*>(params)->value;
+                                                       // SetTrainingGameSpeed params have 8 bytes of padding before the float
+                                                       struct SetTrainingGameSpeedParams
+                                                       {
+                                                           unsigned char _pad[0x8];
+                                                           float value;
+                                                       };
+                                                       float rawValue =
+                                                           reinterpret_cast<SetTrainingGameSpeedParams*>(params)->value;
 
-            ApplyTrainingGameSpeedFromMenuValue(rawValue);
-        });
+                                                       ApplyTrainingGameSpeedFromMenuValue(rawValue);
+                                                   });
 }
 
-void SuiteSpot::UnloadTrainingGameSpeedHooks() {
+void SuiteSpot::UnloadTrainingGameSpeedHooks()
+{
     gameWrapper->UnhookEvent("Function TAGame.GFxData_Settings_TA.SetTrainingGameSpeed");
 }
 
-void SuiteSpot::LoadHooks() {
+void SuiteSpot::LoadHooks()
+{
     // ===== MATCH EVENT HOOKS =====
     // Re-queue/transition at match end. We use HookEventPost to ensure the game has finished
     // its internal match-end logic before we attempt to load a new map.
-    gameWrapper->HookEventPost("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded", 
-        [this](std::string eventName) { 
-            GameEndedEvent(eventName); 
-        });
-
-
-
-
+    gameWrapper->HookEventPost("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded",
+                               [this](std::string eventName) { GameEndedEvent(eventName); });
 
     // ===== PACK HEALER - Training Events =====
     // Based on BakkesMod SDK reference documentation
-    
+
     // Hook: Training pack loaded or restarted
     // Note: IsInCustomTraining() will not yet return true at this point
-    gameWrapper->HookEventPost(
-        "Function TAGame.GameEvent_TrainingEditor_TA.OnInit",
-        [this](std::string eventName) {
-            if (!IsEnabled()) return;
-            LOG("Hook triggered: GameEvent_TrainingEditor_TA.OnInit");
-            gameWrapper->SetTimeout([this](GameWrapper* gw) {
-                TryHealCurrentPack(gw);
-            }, 1.5f);
-        }
-    );
+    gameWrapper->HookEventPost("Function TAGame.GameEvent_TrainingEditor_TA.OnInit", [this](std::string eventName) {
+        if (!IsEnabled()) return;
+        LOG("Hook triggered: GameEvent_TrainingEditor_TA.OnInit");
+        gameWrapper->SetTimeout([this](GameWrapper* gw) { TryHealCurrentPack(gw); }, 1.5f);
+    });
 
     // Hook: Shot attempt started (player moves)
     // This fires when switching shots and player starts moving
-    gameWrapper->HookEventPost(
-        "Function TAGame.TrainingEditorMetrics_TA.TrainingShotAttempt",
-        [this](std::string eventName) {
-            LOG("Hook triggered: TrainingEditorMetrics_TA.TrainingShotAttempt");
-            // Note: This hook exists but is not currently used for auto-heal
-        }
-    );
-    
+    gameWrapper->HookEventPost("Function TAGame.TrainingEditorMetrics_TA.TrainingShotAttempt",
+                               [this](std::string eventName) {
+                                   LOG("Hook triggered: TrainingEditorMetrics_TA.TrainingShotAttempt");
+                                   // Note: This hook exists but is not currently used for auto-heal
+                               });
+
     // Manual heal command
-    cvarManager->registerNotifier("ss_heal_current_pack", [this](std::vector<std::string> args) {
-        TryHealCurrentPack(gameWrapper.get());
-    }, "Manually heal the currently loaded training pack", PERMISSION_ALL);
+    cvarManager->registerNotifier(
+        "ss_heal_current_pack", [this](std::vector<std::string> args) { TryHealCurrentPack(gameWrapper.get()); },
+        "Manually heal the currently loaded training pack", PERMISSION_ALL);
 }
 
 // #detailed comments: GameEndedEvent
@@ -261,96 +273,99 @@ void SuiteSpot::LoadHooks() {
 // gameWrapper->SetTimeout. Changing its semantics will alter when
 // external commands (load_freeplay, queue, etc.) are run relative to
 // overlay presentation.
-void SuiteSpot::GameEndedEvent(std::string name) {
+void SuiteSpot::GameEndedEvent(std::string name)
+{
     if (!IsEnabled()) return;
-    
+
     LOG("SuiteSpot: GameEndedEvent triggered by hook: {}", name);
 
     // 1. Run Auto-Load/Queue Logic first (Independent of overlay)
     if (autoLoadFeature && settingsSync) {
         LOG("SuiteSpot: Triggering AutoLoadFeature::OnMatchEnded");
 
-        autoLoadFeature->OnMatchEnded(gameWrapper, cvarManager, RLMaps, RLTraining, RLWorkshop,
-            *settingsSync, usageTracker.get());
+        autoLoadFeature->OnMatchEnded(gameWrapper, cvarManager, RLMaps, RLTraining, RLWorkshop, *settingsSync,
+                                      usageTracker.get());
 
         // Usage tracking handled by AutoLoadFeature::OnMatchEnded
     }
 }
 
 // Helper method to extract and heal pack data from current training session
-void SuiteSpot::TryHealCurrentPack(GameWrapper* gw) {
+void SuiteSpot::TryHealCurrentPack(GameWrapper* gw)
+{
     if (!trainingPackMgr) {
         LOG("SuiteSpot: TryHealCurrentPack - trainingPackMgr is null");
         return;
     }
-    
+
     if (!gw) {
         LOG("SuiteSpot: TryHealCurrentPack - GameWrapper is null");
         return;
     }
-    
+
     if (!gw->IsInCustomTraining()) {
         LOG("SuiteSpot: TryHealCurrentPack - Not in custom training (IsInCustomTraining=false)");
         return;
     }
-    
+
     LOG("SuiteSpot: TryHealCurrentPack - In custom training, attempting to get data...");
-    
+
     auto server = gw->GetGameEventAsServer();
     if (!server) {
         LOG("SuiteSpot: TryHealCurrentPack - Failed to get GameEventAsServer");
         return;
     }
-    
+
     TrainingEditorWrapper editor(server.memory_address);
     if (!editor) {
         LOG("SuiteSpot: TryHealCurrentPack - Failed to create TrainingEditorWrapper");
         return;
     }
-    
+
     auto trainingData = editor.GetTrainingData();
     if (!trainingData) {
         LOG("SuiteSpot: TryHealCurrentPack - Failed to get TrainingData");
         return;
     }
-    
+
     auto saveData = trainingData.GetTrainingData();
     if (!saveData) {
         LOG("SuiteSpot: TryHealCurrentPack - Failed to get TrainingEditorSaveData");
         return;
     }
-    
+
     std::string code = saveData.GetCode().ToString();
-    
+
     if (code.empty()) {
         LOG("SuiteSpot: TryHealCurrentPack - Pack code is empty");
         return;
     }
-    
+
     // Try multiple methods to get shot count
     int realShots = 0;
-    
+
     // Method 1: From TrainingEditorWrapper directly
     realShots = editor.GetTotalRounds();
     LOG("SuiteSpot: Method 1 (editor.GetTotalRounds): {}", realShots);
-    
+
     // Method 2: From save data (backup)
     if (realShots <= 0) {
         realShots = saveData.GetNumRounds();
         LOG("SuiteSpot: Method 2 (saveData.GetNumRounds): {}", realShots);
     }
-    
+
     if (realShots <= 0) {
         LOG("SuiteSpot: [ERR] All methods failed to extract shot count (got {})", realShots);
         return;
     }
-    
+
     LOG("SuiteSpot: [OK] Successfully extracted pack data - Code: {}, Shots: {}", code, realShots);
     LOG("SuiteSpot: Calling HealPack...");
     trainingPackMgr->HealPack(code, realShots);
 }
 
-void SuiteSpot::onLoad() {
+void SuiteSpot::onLoad()
+{
     _globalCvarManager = cvarManager;
     LOG("SuiteSpot loaded");
     mapManager = std::make_unique<MapManager>();
@@ -363,7 +378,7 @@ void SuiteSpot::onLoad() {
 
     EnsureDataDirectories();
     LoadWorkshopMaps();
-    
+
     // Initialize LoadoutManager
     loadoutManager = std::make_unique<LoadoutManager>(gameWrapper);
     LOG("SuiteSpot: LoadoutManager initialized");
@@ -392,13 +407,12 @@ void SuiteSpot::onLoad() {
             LOG("SuiteSpot: Pack cache loaded");
         }
     }
-    
 
     LoadHooks();
 
     if (settingsSync) {
         settingsSync->RegisterAllCVars(cvarManager);
-        
+
         // Auto-download textures if enabled
         if (settingsSync->IsAutoDownloadTextures() && textureDownloader) {
             std::vector<std::string> missing = textureDownloader->CheckMissingTextures();
@@ -409,13 +423,14 @@ void SuiteSpot::onLoad() {
                     textureDownloadThread.join();
                 }
                 // Start managed texture download thread
-                textureDownloadThread = std::thread([this]() {
-                    textureDownloader->DownloadAndInstallTextures();
-                });
+                textureDownloadThread = std::thread([this]() { textureDownloader->DownloadAndInstallTextures(); });
             }
         }
     }
     LoadTrainingGameSpeedHooks();
+
+    // Initialize hotkey system
+    lastHotKeyPress = std::chrono::steady_clock::now();
 
     LOG("SuiteSpot: Plugin initialization complete");
 }
@@ -437,7 +452,8 @@ void SuiteSpot::onLoad() {
 // DO NOT CHANGE: This sequence prevents hot-reload crashes by ensuring
 // all callbacks are removed before the plugin DLL is unloaded. Skipping
 // event unhooking will cause BakkesMod to call freed memory on reload.
-void SuiteSpot::onUnload() {
+void SuiteSpot::onUnload()
+{
     LOG("SuiteSpot unloading...");
 
     // Wait for texture download to complete if running
@@ -483,43 +499,39 @@ void SuiteSpot::onUnload() {
     LOG("SuiteSpot unloaded successfully");
 }
 
-void SuiteSpot::Render() {
+void SuiteSpot::Render()
+{
     if (!imgui_ctx) return;
     ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(imgui_ctx));
+
+    // Check for hotkey presses and execute corresponding actions
+    CheckAndHandleHotkeys();
+
+    // Render toast notification (hotkey feedback)
+    hotKeyToast.Render(ImGui::GetIO().DeltaTime);
 
     // Note: TrainingPackUI is a PluginWindow registered with BakkesMod,
     // so it's rendered automatically by the framework. No need to call it here.
 }
 
-
-
-std::string SuiteSpot::GetMenuName() {
+std::string SuiteSpot::GetMenuName()
+{
 
     return "suitespot_browser";
-
 }
 
-
-
-std::string SuiteSpot::GetMenuTitle() {
+std::string SuiteSpot::GetMenuTitle()
+{
 
     return "SuiteSpot Training Browser";
-
 }
 
-
-
-void SuiteSpot::SetImGuiContext(uintptr_t ctx) {
-
-
+void SuiteSpot::SetImGuiContext(uintptr_t ctx)
+{
 
     if (ctx) {
 
-
-
         imgui_ctx = ctx;
-
-
 
         ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx));
 
@@ -539,20 +551,12 @@ void SuiteSpot::SetImGuiContext(uintptr_t ctx) {
             }
         }
     }
-
-
-
 }
 
-
-
-
-
-
-
-bool SuiteSpot::ShouldBlockInput() {
+bool SuiteSpot::ShouldBlockInput()
+{
     if (!isBrowserOpen) {
-        return false;  // Browser closed → no blocking
+        return false; // Browser closed → no blocking
     }
 
     // Selective input blocking - consistent with TrainingPackUI
@@ -567,17 +571,14 @@ bool SuiteSpot::ShouldBlockInput() {
     return false;
 }
 
-
-
-bool SuiteSpot::IsActiveOverlay() {
+bool SuiteSpot::IsActiveOverlay()
+{
 
     return isBrowserOpen;
-
 }
 
-
-
-void SuiteSpot::OnOpen() {
+void SuiteSpot::OnOpen()
+{
 
     LOG("SuiteSpot: OnOpen called");
 
@@ -586,14 +587,11 @@ void SuiteSpot::OnOpen() {
     if (trainingPackUI) {
 
         trainingPackUI->SetOpen(true);
-
     }
-
 }
 
-
-
-void SuiteSpot::OnClose() {
+void SuiteSpot::OnClose()
+{
     LOG("SuiteSpot: OnClose called (Ignoring state change to keep browser open)");
 }
 
@@ -609,7 +607,91 @@ void SuiteSpot::LoadTrainingPacksFromFile(const std::filesystem::path& filePath)
     }
 }
 
+// ===== HOTKEY HANDLING =====
 
+void SuiteSpot::CheckAndHandleHotkeys()
+{
+    if (!gameWrapper || !settingsSync || !mapManager) return;
 
+    // Debounce check: Don't process hotkeys faster than HOTKEY_DEBOUNCE_MS
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastHotKeyPress).count();
+    if (elapsed < static_cast<long long>(HOTKEY_DEBOUNCE_MS)) {
+        return; // Too soon, skip this frame
+    }
 
+    // Get hotkey codes from settings
+    int keyMapModeFwd = settingsSync->GetHotkeyMapModeForward();
+    int keyMapModeBk = settingsSync->GetHotkeyMapModeBackward();
+    int keyCycleMapFwd = settingsSync->GetHotkeyCycleMapForward();
+    int keyCycleMapBk = settingsSync->GetHotkeyCycleMapBackward();
+    int keyLoadNow = settingsSync->GetHotkeyLoadNow();
 
+    // Check each hotkey (manual multi-key implementation using AND logic)
+    // For now, these are single-key hotkeys. Multi-key can be added by checking multiple keys with &&
+
+    // Cycle map mode forward
+    if (keyMapModeFwd != 0 && gameWrapper->IsKeyPressed(keyMapModeFwd)) {
+        ShowToastForAction("Switched map mode forward");
+        lastHotKeyPress = now;
+        mapManager->CycleMapMode(true); // Cycle forward
+        return;
+    }
+
+    // Cycle map mode backward
+    if (keyMapModeBk != 0 && gameWrapper->IsKeyPressed(keyMapModeBk)) {
+        ShowToastForAction("Switched map mode backward");
+        lastHotKeyPress = now;
+        mapManager->CycleMapMode(false); // Cycle backward
+        return;
+    }
+
+    // Cycle map forward
+    if (keyCycleMapFwd != 0 && gameWrapper->IsKeyPressed(keyCycleMapFwd)) {
+        ShowToastForAction("Next map");
+        lastHotKeyPress = now;
+        mapManager->CycleMap(true); // Cycle forward
+        return;
+    }
+
+    // Cycle map backward
+    if (keyCycleMapBk != 0 && gameWrapper->IsKeyPressed(keyCycleMapBk)) {
+        ShowToastForAction("Previous map");
+        lastHotKeyPress = now;
+        mapManager->CycleMap(false); // Cycle backward
+        return;
+    }
+
+    // Load current map immediately
+    if (keyLoadNow != 0 && gameWrapper->IsKeyPressed(keyLoadNow)) {
+        ShowToastForAction("Loading current map");
+        lastHotKeyPress = now;
+        // TODO: Call AutoLoadFeature to load current map
+        return;
+    }
+}
+
+void SuiteSpot::ShowToastForAction(const std::string& actionName)
+{
+    // Build message with action + current selection
+    std::string message = actionName;
+
+    // Append current map/pack info if available
+    int mapType = settingsSync->GetMapType();
+    std::string currentSelection;
+
+    if (mapType == 0) { // Freeplay
+        currentSelection = settingsSync->GetCurrentFreeplayCode();
+    } else if (mapType == 1) { // Training
+        currentSelection = settingsSync->GetCurrentTrainingCode();
+    } else if (mapType == 2) { // Workshop
+        currentSelection = settingsSync->GetCurrentWorkshopPath();
+    }
+
+    if (!currentSelection.empty()) {
+        message += " • " + currentSelection;
+    }
+
+    // Display toast with 7-second fade
+    hotKeyToast.ShowInfo(message, 7.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+}

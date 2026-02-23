@@ -37,6 +37,7 @@
 #include "LoadoutManager.h"
 #include "PackUsageTracker.h"
 #include "TextureDownloader.h"
+#include "StatusMessageUI.h"
 #include "version.h"
 #include <filesystem>
 #include <set>
@@ -46,12 +47,10 @@
 
 class SettingsWindowBase : public BakkesMod::Plugin::PluginSettingsWindow
 {
-public:
+  public:
     virtual ~SettingsWindowBase() = default;
     std::string GetPluginName() override { return "SuiteSpot"; }
-    void SetImGuiContext(uintptr_t ctx) override {
-        ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx));
-    }
+    void SetImGuiContext(uintptr_t ctx) override { ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx)); }
 };
 
 // Forward declarations
@@ -65,11 +64,8 @@ class TrainingPackUI;
 class LoadoutUI;
 
 // Version macro carried over from the master template
-constexpr auto plugin_version =
-    stringify(VERSION_MAJOR) "."
-    stringify(VERSION_MINOR) "."
-    stringify(VERSION_PATCH) "."
-    stringify(VERSION_BUILD);
+constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(
+    VERSION_PATCH) "." stringify(VERSION_BUILD);
 
 class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
                         public SettingsWindowBase,
@@ -78,7 +74,8 @@ class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
     friend class SettingsUI;
     friend class TrainingPackUI;
     friend class LoadoutUI;
-public:
+
+  public:
     // PluginWindow implementation
     void Render() override;
     std::string GetMenuName() override;
@@ -109,7 +106,7 @@ public:
     // hooks
     void LoadHooks();
     void GameEndedEvent(std::string name);
-    void TryHealCurrentPack(GameWrapper* gw);  // Pack healer helper
+    void TryHealCurrentPack(GameWrapper* gw); // Pack healer helper
 
     // Training Pack update integration
     std::filesystem::path GetTrainingPacksPath() const;
@@ -117,7 +114,7 @@ public:
     void LoadTrainingPacksFromFile(const std::filesystem::path& filePath);
     bool IsTrainingPackCacheStale() const;
     std::string FormatLastUpdatedTime() const;
-    
+
     bool IsEnabled() const;
     bool IsAutoQueueEnabled() const;
     bool IsTrainingGameSpeedFixEnabled() const;
@@ -130,7 +127,7 @@ public:
     std::string GetCurrentTrainingCode() const;
     std::string GetCurrentWorkshopPath() const;
 
-private:
+  private:
     void LoadTrainingGameSpeedHooks();
     void UnloadTrainingGameSpeedHooks();
     void ApplyTrainingGameSpeedFromMenuValue(float menuValue);
@@ -155,5 +152,16 @@ private:
     uintptr_t imgui_ctx = 0;
     ImFont* clockFont = nullptr;
     std::atomic<bool> isRenderingSettings{false};
-    std::thread textureDownloadThread;  // Managed texture download thread
+    std::thread textureDownloadThread; // Managed texture download thread
+
+    // Toast notification system for hotkey feedback
+    UI::StatusMessage hotKeyToast;
+
+    // Hotkey debouncing: track last key press time to prevent spam
+    std::chrono::steady_clock::time_point lastHotKeyPress;
+    static constexpr float HOTKEY_DEBOUNCE_MS = 100.0f; // Debounce duration in milliseconds
+
+    // Hotkey handlers
+    void CheckAndHandleHotkeys();
+    void ShowToastForAction(const std::string& actionName);
 };
