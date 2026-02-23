@@ -2,18 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## ⚠️ HARD CONSTRAINT: Windows-Only Paths
-
-**DO NOT EVER:**
-- Use `/home/bmile`, `/mnt/c`, `//wsl.localhost`, or any WSL path
-- Switch to WSL directory or suggest it as alternative
-- Build from Linux paths
-- This is enforced by a hard gate hook in `~/.claude/settings.json`
-
-**ALWAYS:**
-- Use ONLY: `C:\Users\bmile\Source\Repos\SuiteSpot`
-- When building from WSL2, convert the path using `wslpath -w` before calling MSBuild
-
 ---
 
 ## Project Overview
@@ -39,15 +27,6 @@ There are two completely independent build pipelines. They must never be mixed.
 - `vcpkg_installed/` is gitignored — each environment manages its own package cache
 - `build/` intermediates are gitignored — never shared between environments
 - `plugins/*.dll` is gitignored — local output never committed
-
-### Local build (from WSL2)
-```bash
-# IMPORTANT: MSVC cannot write intermediates to WSL2 UNC paths.
-# Always target the Windows filesystem copy, not /home/bmile/SuiteSpot.
-WIN_SLN=$(wslpath -w /mnt/c/Users/bmile/Source/Repos/SuiteSpot/SuiteSpot.sln)
-"/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" \
-  "$WIN_SLN" /p:Configuration=Release /p:Platform=x64 /v:minimal
-```
 
 ### Local build (from Windows PowerShell)
 ```powershell

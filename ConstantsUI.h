@@ -119,6 +119,21 @@ constexpr float HOTKEY_LABEL_COL_WIDTH = 150.0f;
 // Width of each key name input field in the Hotkeys tab
 constexpr float HOTKEY_KEY_INPUT_WIDTH = 110.0f;
 
+struct HotkeyRow
+{
+    const char* label;
+    const char* key1CVar;
+    const char* key2CVar;
+};
+
+static const HotkeyRow HOTKEY_ROWS[] = {
+    {"Cycle Mode Fwd", "suitespot_hotkey_map_mode_fwd_key", "suitespot_hotkey_map_mode_fwd_key2"},
+    {"Cycle Mode Back", "suitespot_hotkey_map_mode_bk_key", "suitespot_hotkey_map_mode_bk_key2"},
+    {"Cycle Map Fwd", "suitespot_hotkey_cycle_map_fwd_key", "suitespot_hotkey_cycle_map_fwd_key2"},
+    {"Cycle Map Back", "suitespot_hotkey_cycle_map_bk_key", "suitespot_hotkey_cycle_map_bk_key2"},
+    {"Load Now", "suitespot_hotkey_load_now_key", "suitespot_hotkey_load_now_key2"},
+};
+
 } // namespace SettingsUI
 
 // ===================================================================

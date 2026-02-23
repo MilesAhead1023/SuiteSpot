@@ -9,6 +9,8 @@
 #include "SettingsUI.h"
 #include "TrainingPackUI.h"
 #include "LoadoutUI.h"
+#include "ConstantsUI.h"
+#include "HelpersUI.h"
 #include "bakkesmod/wrappers/GameEvent/TrainingEditorWrapper.h"
 #include "bakkesmod/wrappers/GuiManagerWrapper.h"
 #include <fstream>
@@ -390,7 +392,12 @@ void SuiteSpot::LoadHooks()
             auto key2 = settingsSync->GetHotkeyMapModeFwdKey2();
             if (!key2.empty()) {
                 int vk = KeyNameToVK(key2);
-                if (vk == 0 || !gameWrapper->IsKeyPressed(vk)) return;
+                bool isPressed = gameWrapper->IsKeyPressed(vk);
+                LOG("Hotkey Trigger: ss_cycle_map_mode_fwd triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
+                    isPressed ? "Yes" : "No");
+                if (vk == 0 || !isPressed) return;
+            } else {
+                LOG("Hotkey Trigger: ss_cycle_map_mode_fwd triggered. No combo key set.");
             }
             ShowToastForAction("Switched map mode forward");
             mapManager->CycleMapMode(true);
@@ -404,7 +411,10 @@ void SuiteSpot::LoadHooks()
             auto key2 = settingsSync->GetHotkeyMapModeBkKey2();
             if (!key2.empty()) {
                 int vk = KeyNameToVK(key2);
-                if (vk == 0 || !gameWrapper->IsKeyPressed(vk)) return;
+                bool isPressed = gameWrapper->IsKeyPressed(vk);
+                LOG("Hotkey Trigger: ss_cycle_map_mode_bk triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
+                    isPressed ? "Yes" : "No");
+                if (vk == 0 || !isPressed) return;
             }
             ShowToastForAction("Switched map mode backward");
             mapManager->CycleMapMode(false);
@@ -418,7 +428,10 @@ void SuiteSpot::LoadHooks()
             auto key2 = settingsSync->GetHotkeyCycleMapFwdKey2();
             if (!key2.empty()) {
                 int vk = KeyNameToVK(key2);
-                if (vk == 0 || !gameWrapper->IsKeyPressed(vk)) return;
+                bool isPressed = gameWrapper->IsKeyPressed(vk);
+                LOG("Hotkey Trigger: ss_cycle_map_fwd triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
+                    isPressed ? "Yes" : "No");
+                if (vk == 0 || !isPressed) return;
             }
             ShowToastForAction("Next map");
             mapManager->CycleMap(true);
@@ -432,7 +445,10 @@ void SuiteSpot::LoadHooks()
             auto key2 = settingsSync->GetHotkeyCycleMapBkKey2();
             if (!key2.empty()) {
                 int vk = KeyNameToVK(key2);
-                if (vk == 0 || !gameWrapper->IsKeyPressed(vk)) return;
+                bool isPressed = gameWrapper->IsKeyPressed(vk);
+                LOG("Hotkey Trigger: ss_cycle_map_bk triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
+                    isPressed ? "Yes" : "No");
+                if (vk == 0 || !isPressed) return;
             }
             ShowToastForAction("Previous map");
             mapManager->CycleMap(false);
@@ -446,12 +462,54 @@ void SuiteSpot::LoadHooks()
             auto key2 = settingsSync->GetHotkeyLoadNowKey2();
             if (!key2.empty()) {
                 int vk = KeyNameToVK(key2);
-                if (vk == 0 || !gameWrapper->IsKeyPressed(vk)) return;
+                bool isPressed = gameWrapper->IsKeyPressed(vk);
+                LOG("Hotkey Trigger: ss_load_now triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
+                    isPressed ? "Yes" : "No");
+                if (vk == 0 || !isPressed) return;
             }
             ShowToastForAction("Loading current map");
             // TODO: Call AutoLoadFeature to load current map
         },
         "SuiteSpot: Load current map immediately", PERMISSION_ALL);
+
+    // Raw input hook for hotkey capture (non-polling)
+    gameWrapper->HookEventWithCaller<ActorWrapper>("Function TAGame.GameViewportClient_TA.HandleKeyPress",
+                                                   [this](ActorWrapper caller, void* params, std::string eventName) {
+                                                       if (captureRow < 0) return;
+
+                                                       auto p = static_cast<HandleKeyPressParams*>(params);
+                                                       if (p->EventType != 0) return; // 0 = IE_Pressed
+
+                                                       std::string keyName = gameWrapper->GetFNameByIndex(p->KeyIndex);
+                                                       if (keyName.empty() || keyName == "None") return;
+
+                                                       LOG("Hotkey Capture: Detected key {} (Index: {}, Gamepad: {})",
+                                                           keyName, p->KeyIndex, p->bGamepad);
+
+                                                       // Escape cancels capture
+                                                       if (keyName == "Escape") {
+                                                           LOG("Hotkey Capture: Cancelled via Escape");
+                                                           captureRow = -1;
+                                                           return;
+                                                       }
+
+                                                       // Valid key captured - map to target CVar
+                                                       if (captureRow >= 0 && captureRow < 5) {
+                                                           const auto& row = UI::SettingsUI::HOTKEY_ROWS[captureRow];
+                                                           const char* cvarName = (captureSlot == 0) ? row.key1CVar
+                                                                                                     : row.key2CVar;
+
+                                                           LOG("Hotkey Capture: Assigning {} to {}", keyName, cvarName);
+
+                                                           // We use Execute to ensure we're not modifying CVars directly inside a hooked game call
+                                                           gameWrapper->Execute([this, cvarName, keyName](GameWrapper* gw) {
+                                                               UI::Helpers::SetCVarSafely(cvarName, keyName,
+                                                                                          cvarManager, gameWrapper);
+                                                           });
+
+                                                           captureRow = -1;
+                                                       }
+                                                   });
 }
 
 // #detailed comments: GameEndedEvent
@@ -669,6 +727,7 @@ void SuiteSpot::onUnload()
     gameWrapper->UnhookEventPost("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded");
     gameWrapper->UnhookEventPost("Function TAGame.GameEvent_TrainingEditor_TA.OnInit");
     gameWrapper->UnhookEventPost("Function TAGame.TrainingEditorMetrics_TA.TrainingShotAttempt");
+    gameWrapper->UnhookEvent("Function TAGame.GameViewportClient_TA.HandleKeyPress");
     LOG("Event hooks removed");
 
     // STEP 4: Reset UI components (releases ImGui resources)

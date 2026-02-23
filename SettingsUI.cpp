@@ -326,237 +326,16 @@ void SettingsUI::RenderMainSettingsWindow()
             ImGui::Spacing();
             ImGui::TextDisabled("Click \xe2\x97\x8f to capture a key press, or type the UE3 name manually.");
             ImGui::TextDisabled("Key 1 = trigger.  Key 2 = held combo partner (optional).");
-            ImGui::TextDisabled("Xbox buttons must be typed: XboxTypeS_Back, XboxTypeS_DPad_Right, etc.");
+            ImGui::TextDisabled("Xbox buttons are captured automatically.");
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::Spacing();
-
-            struct HotkeyRow
-            {
-                const char* label;
-                const char* key1CVar;
-                const char* key2CVar;
-            };
-            static const HotkeyRow rows[] = {
-                {"Cycle Mode Fwd", "suitespot_hotkey_map_mode_fwd_key", "suitespot_hotkey_map_mode_fwd_key2"},
-                {"Cycle Mode Back", "suitespot_hotkey_map_mode_bk_key", "suitespot_hotkey_map_mode_bk_key2"},
-                {"Cycle Map Fwd", "suitespot_hotkey_cycle_map_fwd_key", "suitespot_hotkey_cycle_map_fwd_key2"},
-                {"Cycle Map Back", "suitespot_hotkey_cycle_map_bk_key", "suitespot_hotkey_cycle_map_bk_key2"},
-                {"Load Now", "suitespot_hotkey_load_now_key", "suitespot_hotkey_load_now_key2"},
-            };
-
-            // Capture mode state: which row (-1 = off) and slot (0 = key1, 1 = key2)
-            static int captureRow = -1;
-            static int captureSlot = 0;
-
-            // Reverse map: Windows VK code → UE3 key name string (mirrors KeyNameToVK in SuiteSpot.cpp)
-            auto VKToKeyName = [](int vk) -> std::string {
-                switch (vk) {
-                    case 0x10:
-                        return "LeftShift";
-                    case 0xA0:
-                        return "LeftShift";
-                    case 0xA1:
-                        return "RightShift";
-                    case 0x11:
-                        return "LeftControl";
-                    case 0xA2:
-                        return "LeftControl";
-                    case 0xA3:
-                        return "RightControl";
-                    case 0x12:
-                        return "LeftAlt";
-                    case 0xA4:
-                        return "LeftAlt";
-                    case 0xA5:
-                        return "RightAlt";
-                    case 0x41:
-                        return "A";
-                    case 0x42:
-                        return "B";
-                    case 0x43:
-                        return "C";
-                    case 0x44:
-                        return "D";
-                    case 0x45:
-                        return "E";
-                    case 0x46:
-                        return "F";
-                    case 0x47:
-                        return "G";
-                    case 0x48:
-                        return "H";
-                    case 0x49:
-                        return "I";
-                    case 0x4A:
-                        return "J";
-                    case 0x4B:
-                        return "K";
-                    case 0x4C:
-                        return "L";
-                    case 0x4D:
-                        return "M";
-                    case 0x4E:
-                        return "N";
-                    case 0x4F:
-                        return "O";
-                    case 0x50:
-                        return "P";
-                    case 0x51:
-                        return "Q";
-                    case 0x52:
-                        return "R";
-                    case 0x53:
-                        return "S";
-                    case 0x54:
-                        return "T";
-                    case 0x55:
-                        return "U";
-                    case 0x56:
-                        return "V";
-                    case 0x57:
-                        return "W";
-                    case 0x58:
-                        return "X";
-                    case 0x59:
-                        return "Y";
-                    case 0x5A:
-                        return "Z";
-                    case 0x30:
-                        return "Zero";
-                    case 0x31:
-                        return "One";
-                    case 0x32:
-                        return "Two";
-                    case 0x33:
-                        return "Three";
-                    case 0x34:
-                        return "Four";
-                    case 0x35:
-                        return "Five";
-                    case 0x36:
-                        return "Six";
-                    case 0x37:
-                        return "Seven";
-                    case 0x38:
-                        return "Eight";
-                    case 0x39:
-                        return "Nine";
-                    case 0x70:
-                        return "F1";
-                    case 0x71:
-                        return "F2";
-                    case 0x72:
-                        return "F3";
-                    case 0x73:
-                        return "F4";
-                    case 0x74:
-                        return "F5";
-                    case 0x75:
-                        return "F6";
-                    case 0x76:
-                        return "F7";
-                    case 0x77:
-                        return "F8";
-                    case 0x78:
-                        return "F9";
-                    case 0x79:
-                        return "F10";
-                    case 0x7A:
-                        return "F11";
-                    case 0x7B:
-                        return "F12";
-                    case 0x60:
-                        return "NumPadZero";
-                    case 0x61:
-                        return "NumPadOne";
-                    case 0x62:
-                        return "NumPadTwo";
-                    case 0x63:
-                        return "NumPadThree";
-                    case 0x64:
-                        return "NumPadFour";
-                    case 0x65:
-                        return "NumPadFive";
-                    case 0x66:
-                        return "NumPadSix";
-                    case 0x67:
-                        return "NumPadSeven";
-                    case 0x68:
-                        return "NumPadEight";
-                    case 0x69:
-                        return "NumPadNine";
-                    case 0x6A:
-                        return "Multiply";
-                    case 0x6B:
-                        return "Add";
-                    case 0x6D:
-                        return "Subtract";
-                    case 0x6E:
-                        return "Decimal";
-                    case 0x6F:
-                        return "Divide";
-                    case 0x20:
-                        return "SpaceBar";
-                    case 0x0D:
-                        return "Enter";
-                    case 0x09:
-                        return "Tab";
-                    case 0x08:
-                        return "BackSpace";
-                    case 0x2E:
-                        return "Delete";
-                    case 0x2D:
-                        return "Insert";
-                    case 0x24:
-                        return "Home";
-                    case 0x23:
-                        return "End";
-                    case 0x21:
-                        return "PageUp";
-                    case 0x22:
-                        return "PageDown";
-                    case 0x25:
-                        return "Left";
-                    case 0x26:
-                        return "Up";
-                    case 0x27:
-                        return "Right";
-                    case 0x28:
-                        return "Down";
-                    default:
-                        return "";
-                }
-            };
-
-            // Key capture: scan ImGui IO each frame while a slot is waiting
-            if (captureRow >= 0) {
-                ImGuiIO& io = ImGui::GetIO();
-                if (io.KeysDownDuration[0x1B] == 0.0f) { // Escape cancels
-                    captureRow = -1;
-                } else {
-                    // Keyboard: scan VK codes via ImGui IO
-                    for (int k = 8; k < 256; k++) {
-                        if (k == 0x1B) continue;
-                        if (io.KeysDownDuration[k] == 0.0f) {
-                            std::string name = VKToKeyName(k);
-                            if (!name.empty()) {
-                                const char* cv = captureSlot == 0 ? rows[captureRow].key1CVar : rows[captureRow].key2CVar;
-                                UI::Helpers::SetCVarSafely(cv, name, plugin_->cvarManager, plugin_->gameWrapper);
-                                captureRow = -1;
-                            }
-                            break;
-                        }
-                    }
-                    // Xbox controller buttons must be typed manually (XboxTypeS_Back, etc.);
-                }
-            }
 
             ImGui::Columns(2, "HotkeysTabCols", false);
             ImGui::SetColumnWidth(0, UI::SettingsUI::HOTKEY_LABEL_COL_WIDTH);
 
             for (int i = 0; i < 5; i++) {
-                const auto& row = rows[i];
+                const auto& row = UI::SettingsUI::HOTKEY_ROWS[i];
                 ImGui::PushID(i);
 
                 // Col 0: action label
@@ -571,7 +350,7 @@ void SettingsUI::RenderMainSettingsWindow()
                     if (auto cvar = plugin_->cvarManager->getCvar(cvarName); !cvar.IsNull())
                         strncpy_s(buf, cvar.getStringValue().c_str(), sizeof(buf) - 1);
 
-                    bool cap = (captureRow == i && captureSlot == slot);
+                    bool cap = (plugin_->captureRow == i && plugin_->captureSlot == slot);
                     if (cap) {
                         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 1.0f));
                         ImGui::Button("Press any key...", ImVec2(UI::SettingsUI::HOTKEY_KEY_INPUT_WIDTH, 0));
@@ -587,14 +366,15 @@ void SettingsUI::RenderMainSettingsWindow()
                         if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tip);
                     }
                     ImGui::SameLine(0, 2);
-                    ImGui::PushID(capBtnId);
+                    ImGui::PushID(slot); // Unique ID per slot within the row
                     if (ImGui::SmallButton(cap ? "\xe2\x96\xa0" : "\xe2\x97\x8f")) { // ■ / ●
-                        captureRow = cap ? -1 : i;
-                        captureSlot = slot;
+                        plugin_->captureRow = cap ? -1 : i;
+                        plugin_->captureSlot = slot;
                     }
                     ImGui::PopID();
                     if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip(cap ? "Cancel (or press Esc)" : "Click then press any key to capture");
+                        ImGui::SetTooltip(cap ? "Cancel (or press Esc)"
+                                              : "Click then press any key (Keyboard or Xbox) to capture");
                     if (!cap && buf[0] != '\0') {
                         ImGui::SameLine(0, 2);
                         if (ImGui::SmallButton(clrBtnId))

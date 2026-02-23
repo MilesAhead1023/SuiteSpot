@@ -157,6 +157,21 @@ class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
     // Toast notification system for hotkey feedback
     UI::StatusMessage hotKeyToast;
 
+    // Hotkey capture state
+    int captureRow = -1;
+    int captureSlot = 0;
+
     // Hotkey handlers
     void ShowToastForAction(const std::string& actionName);
+};
+
+struct HandleKeyPressParams
+{
+    int ControllerId;
+    int KeyIndex;
+    int KeyNumber;
+    unsigned char EventType;
+    unsigned char Padding[3];
+    float AmountDepressed;
+    unsigned int bGamepad;
 };

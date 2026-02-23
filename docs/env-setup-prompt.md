@@ -20,4 +20,4 @@ Configure this development environment to maximize the capability surface availa
 - A test scaffold targeting the components fully decoupled from the game runtime (`TrainingPackManager`, `SettingsSync`, `PackUsageTracker`, `MapManager`) — not as a quality gate, but so agents can prototype, validate, and iterate on new feature logic before it touches live BakkesMod hooks
 - Pre-commit hooks lightweight enough not to block rapid iteration: format-on-commit via clang-format, nothing that requires a full build or game runtime
 - A `CHANGELOG.md` and structured branch/commit convention so agents can reconstruct intent, understand what was attempted in prior sessions, and avoid re-implementing or conflicting with in-progress work
-- Interop groundwork: confirm the Windows↔WSL2 build bridge is solid enough that an agent can modify source on Linux, trigger a Windows MSBuild via WSL2 interop, and observe build output — all without switching environments
+
