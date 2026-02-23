@@ -324,8 +324,9 @@ void SettingsUI::RenderMainSettingsWindow()
         // ===== HOTKEYS TAB =====
         if (ImGui::BeginTabItem("Hotkeys")) {
             ImGui::Spacing();
-            ImGui::TextDisabled("Bind keys to SuiteSpot actions. Modifier + Key fires the action.");
-            ImGui::TextDisabled("Key names use UE3 format: A-Z, F1-F12, NumPad0-9, etc.");
+            ImGui::TextDisabled("Bind key combos to SuiteSpot actions.");
+            ImGui::TextDisabled("Key 1 = trigger. Key 2 = held combo partner (optional).");
+            ImGui::TextDisabled("UE3 names: A-Z, F1-F12, LeftAlt, XboxTypeS_Back, XboxTypeS_DPad_Right, etc.");
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::Spacing();
@@ -333,77 +334,78 @@ void SettingsUI::RenderMainSettingsWindow()
             struct HotkeyRow
             {
                 const char* label;
-                const char* keyCVar;
-                const char* modCVar;
+                const char* key1CVar;
+                const char* key2CVar;
             };
             static const HotkeyRow rows[] = {
-                {"Cycle Mode Forward", "suitespot_hotkey_map_mode_fwd_key", "suitespot_hotkey_map_mode_fwd_mod"},
-                {"Cycle Mode Backward", "suitespot_hotkey_map_mode_bk_key", "suitespot_hotkey_map_mode_bk_mod"},
-                {"Cycle Map Forward", "suitespot_hotkey_cycle_map_fwd_key", "suitespot_hotkey_cycle_map_fwd_mod"},
-                {"Cycle Map Backward", "suitespot_hotkey_cycle_map_bk_key", "suitespot_hotkey_cycle_map_bk_mod"},
-                {"Load Now", "suitespot_hotkey_load_now_key", "suitespot_hotkey_load_now_mod"},
+                {"Cycle Mode Fwd", "suitespot_hotkey_map_mode_fwd_key", "suitespot_hotkey_map_mode_fwd_key2"},
+                {"Cycle Mode Back", "suitespot_hotkey_map_mode_bk_key", "suitespot_hotkey_map_mode_bk_key2"},
+                {"Cycle Map Fwd", "suitespot_hotkey_cycle_map_fwd_key", "suitespot_hotkey_cycle_map_fwd_key2"},
+                {"Cycle Map Back", "suitespot_hotkey_cycle_map_bk_key", "suitespot_hotkey_cycle_map_bk_key2"},
+                {"Load Now", "suitespot_hotkey_load_now_key", "suitespot_hotkey_load_now_key2"},
             };
-            static const char* modNames[] = {"None", "Shift", "Ctrl", "Alt"};
-            static const int modCodes[] = {0, 16, 17, 18};
 
-            ImGui::Columns(3, "HotkeysCols", false);
-            ImGui::SetColumnWidth(0, 160.0f);
-            ImGui::SetColumnWidth(1, 90.0f);
-            ImGui::TextDisabled("Action");
-            ImGui::NextColumn();
-            ImGui::TextDisabled("Modifier");
-            ImGui::NextColumn();
-            ImGui::TextDisabled("Key Name");
-            ImGui::NextColumn();
-            ImGui::Separator();
+            ImGui::Columns(2, "HotkeysTabCols", false);
+            ImGui::SetColumnWidth(0, UI::SettingsUI::HOTKEY_LABEL_COL_WIDTH);
 
             for (int i = 0; i < 5; i++) {
                 const auto& row = rows[i];
                 ImGui::PushID(i);
 
-                // Action label
+                // Col 0: action label
                 ImGui::AlignTextToFramePadding();
-                ImGui::Text("%s", row.label);
+                ImGui::TextUnformatted(row.label);
                 ImGui::NextColumn();
 
-                // Modifier dropdown
-                int modVal = 0;
-                if (auto cv = plugin_->cvarManager->getCvar(row.modCVar); !cv.IsNull()) modVal = cv.getIntValue();
-                int modIdx = 0;
-                for (int m = 0; m < 4; m++) {
-                    if (modCodes[m] == modVal) {
-                        modIdx = m;
-                        break;
-                    }
-                }
-                ImGui::SetNextItemWidth(-1);
-                if (ImGui::Combo("##mod", &modIdx, modNames, 4)) {
-                    UI::Helpers::SetCVarSafely(row.modCVar, modCodes[modIdx], plugin_->cvarManager, plugin_->gameWrapper);
-                    plugin_->cvarManager->executeCommand("writeconfig", false);
-                }
-                ImGui::NextColumn();
+                // Col 1: [Key1 input] [X]  +  [Key2 input] [X]
+                char key1Buf[64] = {};
+                if (auto cv = plugin_->cvarManager->getCvar(row.key1CVar); !cv.IsNull())
+                    strncpy_s(key1Buf, cv.getStringValue().c_str(), sizeof(key1Buf) - 1);
 
-                // Key name input + Clear button
-                char keyBuf[64] = {};
-                if (auto cv = plugin_->cvarManager->getCvar(row.keyCVar); !cv.IsNull())
-                    strncpy_s(keyBuf, cv.getStringValue().c_str(), sizeof(keyBuf) - 1);
-                ImGui::SetNextItemWidth(90.0f);
-                if (ImGui::InputText("##key", keyBuf, sizeof(keyBuf), ImGuiInputTextFlags_EnterReturnsTrue)) {
-                    UI::Helpers::SetCVarSafely(row.keyCVar, std::string(keyBuf), plugin_->cvarManager,
+                ImGui::SetNextItemWidth(UI::SettingsUI::HOTKEY_KEY_INPUT_WIDTH);
+                if (ImGui::InputText("##k1", key1Buf, sizeof(key1Buf), ImGuiInputTextFlags_EnterReturnsTrue))
+                    UI::Helpers::SetCVarSafely(row.key1CVar, std::string(key1Buf), plugin_->cvarManager,
                                                plugin_->gameWrapper);
-                    plugin_->cvarManager->executeCommand("writeconfig", false);
-                }
-                if (keyBuf[0] != '\0') {
-                    ImGui::SameLine();
-                    if (ImGui::SmallButton("X")) {
-                        UI::Helpers::SetCVarSafely(row.keyCVar, std::string(""), plugin_->cvarManager,
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                    UI::Helpers::SetCVarSafely(row.key1CVar, std::string(key1Buf), plugin_->cvarManager,
+                                               plugin_->gameWrapper);
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Trigger key (fires the action on press)");
+                if (key1Buf[0] != '\0') {
+                    ImGui::SameLine(0, 2);
+                    if (ImGui::SmallButton("X##k1x"))
+                        UI::Helpers::SetCVarSafely(row.key1CVar, std::string(""), plugin_->cvarManager,
                                                    plugin_->gameWrapper);
-                        plugin_->cvarManager->executeCommand("writeconfig", false);
-                    }
                 }
-                ImGui::NextColumn();
 
+                ImGui::SameLine(0, 6);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted("+");
+                ImGui::SameLine(0, 6);
+
+                char key2Buf[64] = {};
+                if (auto cv = plugin_->cvarManager->getCvar(row.key2CVar); !cv.IsNull())
+                    strncpy_s(key2Buf, cv.getStringValue().c_str(), sizeof(key2Buf) - 1);
+
+                ImGui::SetNextItemWidth(UI::SettingsUI::HOTKEY_KEY_INPUT_WIDTH);
+                if (ImGui::InputText("##k2", key2Buf, sizeof(key2Buf), ImGuiInputTextFlags_EnterReturnsTrue))
+                    UI::Helpers::SetCVarSafely(row.key2CVar, std::string(key2Buf), plugin_->cvarManager,
+                                               plugin_->gameWrapper);
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                    UI::Helpers::SetCVarSafely(row.key2CVar, std::string(key2Buf), plugin_->cvarManager,
+                                               plugin_->gameWrapper);
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip(
+                        "Held key — must also be down when Key 1 fires (leave empty for single-key bind)");
+                if (key2Buf[0] != '\0') {
+                    ImGui::SameLine(0, 2);
+                    if (ImGui::SmallButton("X##k2x"))
+                        UI::Helpers::SetCVarSafely(row.key2CVar, std::string(""), plugin_->cvarManager,
+                                                   plugin_->gameWrapper);
+                }
+
+                ImGui::NextColumn();
                 ImGui::PopID();
+                ImGui::Spacing();
             }
             ImGui::Columns(1);
             ImGui::EndTabItem();
