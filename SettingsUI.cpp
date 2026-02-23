@@ -548,37 +548,7 @@ void SettingsUI::RenderMainSettingsWindow()
                             break;
                         }
                     }
-                    // Xbox controller: poll IsKeyPressed for VK_GAMEPAD_* range while in capture mode
-                    // (IsKeyPressed is called once per frame only while the user is actively binding)
-                    if (captureRow >= 0 && plugin_->gameWrapper) {
-                        static const std::pair<int, const char*> xboxMap[] = {
-                            {0xC3, "XboxTypeS_A"},
-                            {0xC4, "XboxTypeS_B"},
-                            {0xC5, "XboxTypeS_X"},
-                            {0xC6, "XboxTypeS_Y"},
-                            {0xC7, "XboxTypeS_RightBumper"},
-                            {0xC8, "XboxTypeS_LeftBumper"},
-                            {0xC9, "XboxTypeS_LeftTrigger"},
-                            {0xCA, "XboxTypeS_RightTrigger"},
-                            {0xCB, "XboxTypeS_DPad_Up"},
-                            {0xCC, "XboxTypeS_DPad_Down"},
-                            {0xCD, "XboxTypeS_DPad_Left"},
-                            {0xCE, "XboxTypeS_DPad_Right"},
-                            {0xCF, "XboxTypeS_Start"},
-                            {0xD0, "XboxTypeS_Back"},
-                            {0xD1, "XboxTypeS_LeftThumbstick"},
-                            {0xD2, "XboxTypeS_RightThumbstick"},
-                        };
-                        for (auto& [code, name] : xboxMap) {
-                            if (plugin_->gameWrapper->IsKeyPressed(code)) {
-                                const char* cv = captureSlot == 0 ? rows[captureRow].key1CVar : rows[captureRow].key2CVar;
-                                UI::Helpers::SetCVarSafely(cv, std::string(name), plugin_->cvarManager,
-                                                           plugin_->gameWrapper);
-                                captureRow = -1;
-                                break;
-                            }
-                        }
-                    }
+                    // Xbox controller buttons must be typed manually (XboxTypeS_Back, etc.);
                 }
             }
 
