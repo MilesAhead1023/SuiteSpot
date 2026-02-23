@@ -1023,7 +1023,7 @@ void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
 {
     if (!plugin_->workshopDownloader) return;
 
-    // Check if list has changed
+    // Check if API list has changed
     int currentVersion = plugin_->workshopDownloader->listVersion.load();
     if (currentVersion != lastListVersion) {
         std::lock_guard<std::mutex> lock(plugin_->workshopDownloader->resultsMutex);
@@ -1042,14 +1042,20 @@ void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
         LOG("UI Synced list. New version: {}, items: {} (filtered from {})", currentVersion, cachedResultList.size(),
             fullList.size());
         lastListVersion = currentVersion;
-        // Reset selection if out of range
-        if (selectedBrowserIndex >= (int)cachedResultList.size()) selectedBrowserIndex = -1;
+        RebuildDisplayList(); // Score and sort the freshly-built cache
     }
 
-    if (cachedResultList.empty()) return;
+    // Re-rank if user changed the local filter text
+    std::string currentFilter = localFilterBuf;
+    if (currentFilter != lastLocalFilter) {
+        lastLocalFilter = currentFilter;
+        RebuildDisplayList();
+    }
+
+    if (displayResultList.empty()) return;
 
     // Clamp selection
-    if (selectedBrowserIndex >= (int)cachedResultList.size()) selectedBrowserIndex = (int)cachedResultList.size() - 1;
+    if (selectedBrowserIndex >= (int)displayResultList.size()) selectedBrowserIndex = (int)displayResultList.size() - 1;
 
     // Two-panel layout matching Installed Maps design
     float availWidth = ImGui::GetContentRegionAvail().x;
@@ -1061,11 +1067,11 @@ void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
 
     // === LEFT PANEL: Map List ===
     if (ImGui::BeginChild("##BrowserMapList", ImVec2(leftWidth, UI::WorkshopBrowserUI::BROWSER_HEIGHT), true)) {
-        ImGui::TextDisabled("%d maps", (int)cachedResultList.size());
+        ImGui::TextDisabled("%d maps", (int)displayResultList.size());
         ImGui::Separator();
 
-        for (int i = 0; i < (int)cachedResultList.size(); i++) {
-            auto& mapResult = cachedResultList[i];
+        for (int i = 0; i < (int)displayResultList.size(); i++) {
+            auto& mapResult = displayResultList[i];
             bool isSelected = (i == selectedBrowserIndex);
             bool hasReleases = !mapResult.releases.empty();
 
@@ -1093,8 +1099,8 @@ void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
 
     // === RIGHT PANEL: Details + Download ===
     if (ImGui::BeginChild("##BrowserMapDetails", ImVec2(rightWidth, UI::WorkshopBrowserUI::BROWSER_HEIGHT), true)) {
-        if (selectedBrowserIndex >= 0 && selectedBrowserIndex < (int)cachedResultList.size()) {
-            auto& mapResult = cachedResultList[selectedBrowserIndex];
+        if (selectedBrowserIndex >= 0 && selectedBrowserIndex < (int)displayResultList.size()) {
+            auto& mapResult = displayResultList[selectedBrowserIndex];
 
             // Preview image
             std::shared_ptr<ImageWrapper> image = nullptr;
