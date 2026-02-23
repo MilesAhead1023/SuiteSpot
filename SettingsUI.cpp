@@ -961,7 +961,7 @@ void SettingsUI::RenderWorkshopBrowserTab()
 
     ImGui::Spacing();
 
-    // Search bar
+    // API Search — fetches from RLMAPS
     ImGui::Text("Search Maps:");
     ImGui::SetNextItemWidth(400.0f);
     bool enterPressed = ImGui::InputText("##WorkshopSearch", workshopSearchBuf, IM_ARRAYSIZE(workshopSearchBuf),
@@ -969,6 +969,9 @@ void SettingsUI::RenderWorkshopBrowserTab()
     ImGui::SameLine();
 
     if ((ImGui::Button("Search") || enterPressed) && strlen(workshopSearchBuf) > 0) {
+        // Reset local filter when doing a new API search
+        memset(localFilterBuf, 0, sizeof(localFilterBuf));
+        lastLocalFilter.clear();
         plugin_->workshopDownloader->GetResults(workshopSearchBuf, 1);
     }
 
@@ -980,7 +983,24 @@ void SettingsUI::RenderWorkshopBrowserTab()
         ImGui::SameLine();
         ImGui::TextDisabled("Searching...");
     } else if (!cachedResultList.empty()) {
-        ImGui::Text("%d maps found", (int)cachedResultList.size());
+        ImGui::Text("%d / %d maps", (int)displayResultList.size(), (int)cachedResultList.size());
+    }
+
+    // Local filter — re-ranks already-loaded results in real time, no API call
+    if (!cachedResultList.empty()) {
+        ImGui::Spacing();
+        ImGui::Text("Filter & Rank:");
+        ImGui::SetNextItemWidth(400.0f);
+        ImGui::InputText("##LocalFilter", localFilterBuf, IM_ARRAYSIZE(localFilterBuf));
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Type to filter and rank results by relevance. Closer matches appear first.");
+        if (strlen(localFilterBuf) > 0) {
+            ImGui::SameLine();
+            if (ImGui::Button("Clear")) {
+                memset(localFilterBuf, 0, sizeof(localFilterBuf));
+                lastLocalFilter.clear();
+            }
+        }
     }
 
     ImGui::Spacing();
