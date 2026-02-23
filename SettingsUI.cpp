@@ -893,6 +893,32 @@ static int ScoreResult(const std::string& queryLower, const RLMAPS_MapResult& re
     return std::max(score, 1);
 }
 
+void SettingsUI::RebuildDisplayList()
+{
+    std::string query = localFilterBuf;
+    std::transform(query.begin(), query.end(), query.begin(), ::tolower);
+
+    // Score and filter
+    std::vector<std::pair<int, size_t>> scored;
+    scored.reserve(cachedResultList.size());
+    for (size_t i = 0; i < cachedResultList.size(); ++i) {
+        int s = ScoreResult(query, cachedResultList[i]);
+        if (s > 0) scored.push_back({s, i});
+    }
+
+    // Sort descending by score
+    std::stable_sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+
+    // Build display list
+    displayResultList.clear();
+    displayResultList.reserve(scored.size());
+    for (auto& [score, idx] : scored)
+        displayResultList.push_back(cachedResultList[idx]);
+
+    // Reset selection — position in list may have shifted
+    selectedBrowserIndex = -1;
+}
+
 void SettingsUI::RenderWorkshopBrowserTab()
 {
     if (!plugin_->workshopDownloader) {
