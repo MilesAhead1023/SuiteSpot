@@ -324,9 +324,9 @@ void SettingsUI::RenderMainSettingsWindow()
         // ===== HOTKEYS TAB =====
         if (ImGui::BeginTabItem("Hotkeys")) {
             ImGui::Spacing();
-            ImGui::TextDisabled("Bind key combos to SuiteSpot actions.");
-            ImGui::TextDisabled("Key 1 = trigger. Key 2 = held combo partner (optional).");
-            ImGui::TextDisabled("UE3 names: A-Z, F1-F12, LeftAlt, XboxTypeS_Back, XboxTypeS_DPad_Right, etc.");
+            ImGui::TextDisabled("Click \xe2\x97\x8f to capture a key press, or type the UE3 name manually.");
+            ImGui::TextDisabled("Key 1 = trigger.  Key 2 = held combo partner (optional).");
+            ImGui::TextDisabled("Xbox buttons must be typed: XboxTypeS_Back, XboxTypeS_DPad_Right, etc.");
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::Spacing();
@@ -345,6 +345,211 @@ void SettingsUI::RenderMainSettingsWindow()
                 {"Load Now", "suitespot_hotkey_load_now_key", "suitespot_hotkey_load_now_key2"},
             };
 
+            // Capture mode state: which row (-1 = off) and slot (0 = key1, 1 = key2)
+            static int captureRow = -1;
+            static int captureSlot = 0;
+
+            // Reverse map: Windows VK code → UE3 key name string (mirrors KeyNameToVK in SuiteSpot.cpp)
+            auto VKToKeyName = [](int vk) -> std::string {
+                switch (vk) {
+                    case 0x10:
+                        return "LeftShift";
+                    case 0xA0:
+                        return "LeftShift";
+                    case 0xA1:
+                        return "RightShift";
+                    case 0x11:
+                        return "LeftControl";
+                    case 0xA2:
+                        return "LeftControl";
+                    case 0xA3:
+                        return "RightControl";
+                    case 0x12:
+                        return "LeftAlt";
+                    case 0xA4:
+                        return "LeftAlt";
+                    case 0xA5:
+                        return "RightAlt";
+                    case 0x41:
+                        return "A";
+                    case 0x42:
+                        return "B";
+                    case 0x43:
+                        return "C";
+                    case 0x44:
+                        return "D";
+                    case 0x45:
+                        return "E";
+                    case 0x46:
+                        return "F";
+                    case 0x47:
+                        return "G";
+                    case 0x48:
+                        return "H";
+                    case 0x49:
+                        return "I";
+                    case 0x4A:
+                        return "J";
+                    case 0x4B:
+                        return "K";
+                    case 0x4C:
+                        return "L";
+                    case 0x4D:
+                        return "M";
+                    case 0x4E:
+                        return "N";
+                    case 0x4F:
+                        return "O";
+                    case 0x50:
+                        return "P";
+                    case 0x51:
+                        return "Q";
+                    case 0x52:
+                        return "R";
+                    case 0x53:
+                        return "S";
+                    case 0x54:
+                        return "T";
+                    case 0x55:
+                        return "U";
+                    case 0x56:
+                        return "V";
+                    case 0x57:
+                        return "W";
+                    case 0x58:
+                        return "X";
+                    case 0x59:
+                        return "Y";
+                    case 0x5A:
+                        return "Z";
+                    case 0x30:
+                        return "Zero";
+                    case 0x31:
+                        return "One";
+                    case 0x32:
+                        return "Two";
+                    case 0x33:
+                        return "Three";
+                    case 0x34:
+                        return "Four";
+                    case 0x35:
+                        return "Five";
+                    case 0x36:
+                        return "Six";
+                    case 0x37:
+                        return "Seven";
+                    case 0x38:
+                        return "Eight";
+                    case 0x39:
+                        return "Nine";
+                    case 0x70:
+                        return "F1";
+                    case 0x71:
+                        return "F2";
+                    case 0x72:
+                        return "F3";
+                    case 0x73:
+                        return "F4";
+                    case 0x74:
+                        return "F5";
+                    case 0x75:
+                        return "F6";
+                    case 0x76:
+                        return "F7";
+                    case 0x77:
+                        return "F8";
+                    case 0x78:
+                        return "F9";
+                    case 0x79:
+                        return "F10";
+                    case 0x7A:
+                        return "F11";
+                    case 0x7B:
+                        return "F12";
+                    case 0x60:
+                        return "NumPadZero";
+                    case 0x61:
+                        return "NumPadOne";
+                    case 0x62:
+                        return "NumPadTwo";
+                    case 0x63:
+                        return "NumPadThree";
+                    case 0x64:
+                        return "NumPadFour";
+                    case 0x65:
+                        return "NumPadFive";
+                    case 0x66:
+                        return "NumPadSix";
+                    case 0x67:
+                        return "NumPadSeven";
+                    case 0x68:
+                        return "NumPadEight";
+                    case 0x69:
+                        return "NumPadNine";
+                    case 0x6A:
+                        return "Multiply";
+                    case 0x6B:
+                        return "Add";
+                    case 0x6D:
+                        return "Subtract";
+                    case 0x6E:
+                        return "Decimal";
+                    case 0x6F:
+                        return "Divide";
+                    case 0x20:
+                        return "SpaceBar";
+                    case 0x0D:
+                        return "Enter";
+                    case 0x09:
+                        return "Tab";
+                    case 0x08:
+                        return "BackSpace";
+                    case 0x2E:
+                        return "Delete";
+                    case 0x2D:
+                        return "Insert";
+                    case 0x24:
+                        return "Home";
+                    case 0x23:
+                        return "End";
+                    case 0x21:
+                        return "PageUp";
+                    case 0x22:
+                        return "PageDown";
+                    case 0x25:
+                        return "Left";
+                    case 0x26:
+                        return "Up";
+                    case 0x27:
+                        return "Right";
+                    case 0x28:
+                        return "Down";
+                    default:
+                        return "";
+                }
+            };
+
+            // Key capture: scan ImGui IO each frame while a slot is waiting
+            if (captureRow >= 0) {
+                ImGuiIO& io = ImGui::GetIO();
+                if (io.KeysDownDuration[0x1B] == 0.0f) { // Escape cancels
+                    captureRow = -1;
+                } else {
+                    for (int k = 8; k < 256; k++) {
+                        if (k == 0x1B) continue;
+                        if (io.KeysDownDuration[k] == 0.0f) {
+                            std::string name = VKToKeyName(k);
+                            if (!name.empty()) {
+                                const char* cv = captureSlot == 0 ? rows[captureRow].key1CVar : rows[captureRow].key2CVar;
+                                UI::Helpers::SetCVarSafely(cv, name, plugin_->cvarManager, plugin_->gameWrapper);
+                                captureRow = -1;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
             ImGui::Columns(2, "HotkeysTabCols", false);
             ImGui::SetColumnWidth(0, UI::SettingsUI::HOTKEY_LABEL_COL_WIDTH);
 
@@ -357,57 +562,63 @@ void SettingsUI::RenderMainSettingsWindow()
                 ImGui::TextUnformatted(row.label);
                 ImGui::NextColumn();
 
-                // Col 1: [Key1 input] [X]  +  [Key2 input] [X]
-                char key1Buf[64] = {};
-                if (auto cv = plugin_->cvarManager->getCvar(row.key1CVar); !cv.IsNull())
-                    strncpy_s(key1Buf, cv.getStringValue().c_str(), sizeof(key1Buf) - 1);
+                // Helper: render one key slot (key1 or key2)
+                auto renderSlot = [&](int slot, const char* cvarName, const char* inputId, const char* capBtnId,
+                                      const char* clrBtnId, const char* tip) {
+                    char buf[64] = {};
+                    if (auto cvar = plugin_->cvarManager->getCvar(cvarName); !cvar.IsNull())
+                        strncpy_s(buf, cvar.getStringValue().c_str(), sizeof(buf) - 1);
 
-                ImGui::SetNextItemWidth(UI::SettingsUI::HOTKEY_KEY_INPUT_WIDTH);
-                if (ImGui::InputText("##k1", key1Buf, sizeof(key1Buf), ImGuiInputTextFlags_EnterReturnsTrue))
-                    UI::Helpers::SetCVarSafely(row.key1CVar, std::string(key1Buf), plugin_->cvarManager,
-                                               plugin_->gameWrapper);
-                if (ImGui::IsItemDeactivatedAfterEdit())
-                    UI::Helpers::SetCVarSafely(row.key1CVar, std::string(key1Buf), plugin_->cvarManager,
-                                               plugin_->gameWrapper);
-                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Trigger key (fires the action on press)");
-                if (key1Buf[0] != '\0') {
+                    bool cap = (captureRow == i && captureSlot == slot);
+                    if (cap) {
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 1.0f));
+                        ImGui::Button("Press any key...", ImVec2(UI::SettingsUI::HOTKEY_KEY_INPUT_WIDTH, 0));
+                        ImGui::PopStyleColor();
+                    } else {
+                        ImGui::SetNextItemWidth(UI::SettingsUI::HOTKEY_KEY_INPUT_WIDTH);
+                        if (ImGui::InputText(inputId, buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
+                            UI::Helpers::SetCVarSafely(cvarName, std::string(buf), plugin_->cvarManager,
+                                                       plugin_->gameWrapper);
+                        if (ImGui::IsItemDeactivatedAfterEdit())
+                            UI::Helpers::SetCVarSafely(cvarName, std::string(buf), plugin_->cvarManager,
+                                                       plugin_->gameWrapper);
+                        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tip);
+                    }
                     ImGui::SameLine(0, 2);
-                    if (ImGui::SmallButton("X##k1x"))
-                        UI::Helpers::SetCVarSafely(row.key1CVar, std::string(""), plugin_->cvarManager,
-                                                   plugin_->gameWrapper);
-                }
+                    if (ImGui::SmallButton(cap ? "\xe2\x96\xa0" : "\xe2\x97\x8f")) { // ■ / ●
+                        captureRow = cap ? -1 : i;
+                        captureSlot = slot;
+                    }
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip(cap ? "Cancel (or press Esc)" : "Click then press any key to capture");
+                    if (!cap && buf[0] != '\0') {
+                        ImGui::SameLine(0, 2);
+                        if (ImGui::SmallButton(clrBtnId))
+                            UI::Helpers::SetCVarSafely(cvarName, std::string(""), plugin_->cvarManager,
+                                                       plugin_->gameWrapper);
+                    }
+                };
 
+                // Col 1: [Key1 slot]  +  [Key2 slot]
+                renderSlot(0, row.key1CVar, "##k1", "##cb1", "X##k1x",
+                           "Trigger key — click \xe2\x97\x8f to capture, or type UE3 name");
                 ImGui::SameLine(0, 6);
                 ImGui::AlignTextToFramePadding();
                 ImGui::TextUnformatted("+");
                 ImGui::SameLine(0, 6);
-
-                char key2Buf[64] = {};
-                if (auto cv = plugin_->cvarManager->getCvar(row.key2CVar); !cv.IsNull())
-                    strncpy_s(key2Buf, cv.getStringValue().c_str(), sizeof(key2Buf) - 1);
-
-                ImGui::SetNextItemWidth(UI::SettingsUI::HOTKEY_KEY_INPUT_WIDTH);
-                if (ImGui::InputText("##k2", key2Buf, sizeof(key2Buf), ImGuiInputTextFlags_EnterReturnsTrue))
-                    UI::Helpers::SetCVarSafely(row.key2CVar, std::string(key2Buf), plugin_->cvarManager,
-                                               plugin_->gameWrapper);
-                if (ImGui::IsItemDeactivatedAfterEdit())
-                    UI::Helpers::SetCVarSafely(row.key2CVar, std::string(key2Buf), plugin_->cvarManager,
-                                               plugin_->gameWrapper);
-                if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip(
-                        "Held key — must also be down when Key 1 fires (leave empty for single-key bind)");
-                if (key2Buf[0] != '\0') {
-                    ImGui::SameLine(0, 2);
-                    if (ImGui::SmallButton("X##k2x"))
-                        UI::Helpers::SetCVarSafely(row.key2CVar, std::string(""), plugin_->cvarManager,
-                                                   plugin_->gameWrapper);
-                }
+                renderSlot(1, row.key2CVar, "##k2", "##cb2", "X##k2x",
+                           "Held key — must also be down when Key 1 fires (empty = single-key bind)");
 
                 ImGui::NextColumn();
                 ImGui::PopID();
                 ImGui::Spacing();
             }
             ImGui::Columns(1);
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            if (ImGui::Button("Save Hotkeys")) plugin_->cvarManager->executeCommand("writeconfig", false);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Persist hotkey settings to config file");
             ImGui::EndTabItem();
         }
 
