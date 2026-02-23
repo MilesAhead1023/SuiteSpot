@@ -157,11 +157,6 @@ class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
     // Toast notification system for hotkey feedback
     UI::StatusMessage hotKeyToast;
 
-    // Hotkey debouncing: track last key press time to prevent spam
-    std::chrono::steady_clock::time_point lastHotKeyPress;
-    static constexpr float HOTKEY_DEBOUNCE_MS = 100.0f; // Debounce duration in milliseconds
-
     // Hotkey handlers
-    void CheckAndHandleHotkeys();
     void ShowToastForAction(const std::string& actionName);
 };

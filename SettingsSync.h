@@ -53,12 +53,17 @@ class SettingsSync
     std::string GetQuickPicksSelectedCode() const { return quickPicksSelected; }
     std::string GetCurrentWorkshopPath() const { return currentWorkshopPath; }
 
-    // Hotkey getters
-    int GetHotkeyMapModeForward() const { return hotkeyMapModeForward; }
-    int GetHotkeyMapModeBackward() const { return hotkeyMapModeBackward; }
-    int GetHotkeyCycleMapForward() const { return hotkeyCycleMapForward; }
-    int GetHotkeyCycleMapBackward() const { return hotkeyCycleMapBackward; }
-    int GetHotkeyLoadNow() const { return hotkeyLoadNow; }
+    // Hotkey getters — key name (UE3 string, e.g. "J", "F3") + modifier (0=None, 16=Shift, 17=Ctrl, 18=Alt)
+    std::string GetHotkeyMapModeFwdKey() const { return hotkeyMapModeFwdKey; }
+    int GetHotkeyMapModeFwdMod() const { return hotkeyMapModeFwdMod; }
+    std::string GetHotkeyMapModeBkKey() const { return hotkeyMapModeBkKey; }
+    int GetHotkeyMapModeBkMod() const { return hotkeyMapModeBkMod; }
+    std::string GetHotkeyCycleMapFwdKey() const { return hotkeyCycleMapFwdKey; }
+    int GetHotkeyCycleMapFwdMod() const { return hotkeyCycleMapFwdMod; }
+    std::string GetHotkeyCycleMapBkKey() const { return hotkeyCycleMapBkKey; }
+    int GetHotkeyCycleMapBkMod() const { return hotkeyCycleMapBkMod; }
+    std::string GetHotkeyLoadNowKey() const { return hotkeyLoadNowKey; }
+    int GetHotkeyLoadNowMod() const { return hotkeyLoadNowMod; }
 
     // Setters: Update the local value (used when loading data)
     void SetCurrentFreeplayCode(const std::string& code);
@@ -87,10 +92,15 @@ class SettingsSync
     std::string currentTrainingCode; // Training pack code (e.g., "XXXX-XXXX-XXXX-XXXX")
     std::string currentWorkshopPath; // Workshop map path (e.g., "C:/path/to/map.udk")
 
-    // Hotkey bindings (stored as key codes)
-    int hotkeyMapModeForward = 0; // Default: unbound
-    int hotkeyMapModeBackward = 0;
-    int hotkeyCycleMapForward = 0;
-    int hotkeyCycleMapBackward = 0;
-    int hotkeyLoadNow = 0;
+    // Hotkey bindings: key name (UE3 string) + modifier code (0=None, 16=Shift, 17=Ctrl, 18=Alt)
+    std::string hotkeyMapModeFwdKey;
+    int hotkeyMapModeFwdMod = 0;
+    std::string hotkeyMapModeBkKey;
+    int hotkeyMapModeBkMod = 0;
+    std::string hotkeyCycleMapFwdKey;
+    int hotkeyCycleMapFwdMod = 0;
+    std::string hotkeyCycleMapBkKey;
+    int hotkeyCycleMapBkMod = 0;
+    std::string hotkeyLoadNowKey;
+    int hotkeyLoadNowMod = 0;
 };

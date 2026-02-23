@@ -321,6 +321,94 @@ void SettingsUI::RenderMainSettingsWindow()
             ImGui::EndTabItem();
         }
 
+        // ===== HOTKEYS TAB =====
+        if (ImGui::BeginTabItem("Hotkeys")) {
+            ImGui::Spacing();
+            ImGui::TextDisabled("Bind keys to SuiteSpot actions. Modifier + Key fires the action.");
+            ImGui::TextDisabled("Key names use UE3 format: A-Z, F1-F12, NumPad0-9, etc.");
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            struct HotkeyRow
+            {
+                const char* label;
+                const char* keyCVar;
+                const char* modCVar;
+            };
+            static const HotkeyRow rows[] = {
+                {"Cycle Mode Forward", "suitespot_hotkey_map_mode_fwd_key", "suitespot_hotkey_map_mode_fwd_mod"},
+                {"Cycle Mode Backward", "suitespot_hotkey_map_mode_bk_key", "suitespot_hotkey_map_mode_bk_mod"},
+                {"Cycle Map Forward", "suitespot_hotkey_cycle_map_fwd_key", "suitespot_hotkey_cycle_map_fwd_mod"},
+                {"Cycle Map Backward", "suitespot_hotkey_cycle_map_bk_key", "suitespot_hotkey_cycle_map_bk_mod"},
+                {"Load Now", "suitespot_hotkey_load_now_key", "suitespot_hotkey_load_now_mod"},
+            };
+            static const char* modNames[] = {"None", "Shift", "Ctrl", "Alt"};
+            static const int modCodes[] = {0, 16, 17, 18};
+
+            ImGui::Columns(3, "HotkeysCols", false);
+            ImGui::SetColumnWidth(0, 160.0f);
+            ImGui::SetColumnWidth(1, 90.0f);
+            ImGui::TextDisabled("Action");
+            ImGui::NextColumn();
+            ImGui::TextDisabled("Modifier");
+            ImGui::NextColumn();
+            ImGui::TextDisabled("Key Name");
+            ImGui::NextColumn();
+            ImGui::Separator();
+
+            for (int i = 0; i < 5; i++) {
+                const auto& row = rows[i];
+                ImGui::PushID(i);
+
+                // Action label
+                ImGui::AlignTextToFramePadding();
+                ImGui::Text("%s", row.label);
+                ImGui::NextColumn();
+
+                // Modifier dropdown
+                int modVal = 0;
+                if (auto cv = plugin_->cvarManager->getCvar(row.modCVar); !cv.IsNull()) modVal = cv.getIntValue();
+                int modIdx = 0;
+                for (int m = 0; m < 4; m++) {
+                    if (modCodes[m] == modVal) {
+                        modIdx = m;
+                        break;
+                    }
+                }
+                ImGui::SetNextItemWidth(-1);
+                if (ImGui::Combo("##mod", &modIdx, modNames, 4)) {
+                    UI::Helpers::SetCVarSafely(row.modCVar, modCodes[modIdx], plugin_->cvarManager, plugin_->gameWrapper);
+                    plugin_->cvarManager->executeCommand("writeconfig", false);
+                }
+                ImGui::NextColumn();
+
+                // Key name input + Clear button
+                char keyBuf[64] = {};
+                if (auto cv = plugin_->cvarManager->getCvar(row.keyCVar); !cv.IsNull())
+                    strncpy_s(keyBuf, cv.getStringValue().c_str(), sizeof(keyBuf) - 1);
+                ImGui::SetNextItemWidth(90.0f);
+                if (ImGui::InputText("##key", keyBuf, sizeof(keyBuf), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    UI::Helpers::SetCVarSafely(row.keyCVar, std::string(keyBuf), plugin_->cvarManager,
+                                               plugin_->gameWrapper);
+                    plugin_->cvarManager->executeCommand("writeconfig", false);
+                }
+                if (keyBuf[0] != '\0') {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("X")) {
+                        UI::Helpers::SetCVarSafely(row.keyCVar, std::string(""), plugin_->cvarManager,
+                                                   plugin_->gameWrapper);
+                        plugin_->cvarManager->executeCommand("writeconfig", false);
+                    }
+                }
+                ImGui::NextColumn();
+
+                ImGui::PopID();
+            }
+            ImGui::Columns(1);
+            ImGui::EndTabItem();
+        }
+
         ImGui::EndTabBar();
     }
 

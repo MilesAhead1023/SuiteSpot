@@ -17,7 +17,6 @@
 #include <cctype>
 #include <unordered_set>
 #include <random>
-#include <chrono>
 #include <iomanip>
 #include <sstream>
 #include <cmath>
@@ -257,6 +256,63 @@ void SuiteSpot::LoadHooks()
     cvarManager->registerNotifier(
         "ss_heal_current_pack", [this](std::vector<std::string> args) { TryHealCurrentPack(gameWrapper.get()); },
         "Manually heal the currently loaded training pack", PERMISSION_ALL);
+
+    // Hotkey action notifiers — fired by BakkesMod on key-down via setBind in SettingsSync.
+    // Each checks the configured modifier (if any) before acting.
+    cvarManager->registerNotifier(
+        "ss_cycle_map_mode_fwd",
+        [this](std::vector<std::string> args) {
+            if (!settingsSync || !mapManager) return;
+            int mod = settingsSync->GetHotkeyMapModeFwdMod();
+            if (mod != 0 && !gameWrapper->IsKeyPressed(mod)) return;
+            ShowToastForAction("Switched map mode forward");
+            mapManager->CycleMapMode(true);
+        },
+        "SuiteSpot: Cycle map mode forward", PERMISSION_ALL);
+
+    cvarManager->registerNotifier(
+        "ss_cycle_map_mode_bk",
+        [this](std::vector<std::string> args) {
+            if (!settingsSync || !mapManager) return;
+            int mod = settingsSync->GetHotkeyMapModeBkMod();
+            if (mod != 0 && !gameWrapper->IsKeyPressed(mod)) return;
+            ShowToastForAction("Switched map mode backward");
+            mapManager->CycleMapMode(false);
+        },
+        "SuiteSpot: Cycle map mode backward", PERMISSION_ALL);
+
+    cvarManager->registerNotifier(
+        "ss_cycle_map_fwd",
+        [this](std::vector<std::string> args) {
+            if (!settingsSync || !mapManager) return;
+            int mod = settingsSync->GetHotkeyCycleMapFwdMod();
+            if (mod != 0 && !gameWrapper->IsKeyPressed(mod)) return;
+            ShowToastForAction("Next map");
+            mapManager->CycleMap(true);
+        },
+        "SuiteSpot: Cycle map forward", PERMISSION_ALL);
+
+    cvarManager->registerNotifier(
+        "ss_cycle_map_bk",
+        [this](std::vector<std::string> args) {
+            if (!settingsSync || !mapManager) return;
+            int mod = settingsSync->GetHotkeyCycleMapBkMod();
+            if (mod != 0 && !gameWrapper->IsKeyPressed(mod)) return;
+            ShowToastForAction("Previous map");
+            mapManager->CycleMap(false);
+        },
+        "SuiteSpot: Cycle map backward", PERMISSION_ALL);
+
+    cvarManager->registerNotifier(
+        "ss_load_now",
+        [this](std::vector<std::string> args) {
+            if (!settingsSync) return;
+            int mod = settingsSync->GetHotkeyLoadNowMod();
+            if (mod != 0 && !gameWrapper->IsKeyPressed(mod)) return;
+            ShowToastForAction("Loading current map");
+            // TODO: Call AutoLoadFeature to load current map
+        },
+        "SuiteSpot: Load current map immediately", PERMISSION_ALL);
 }
 
 // #detailed comments: GameEndedEvent
@@ -429,9 +485,6 @@ void SuiteSpot::onLoad()
     }
     LoadTrainingGameSpeedHooks();
 
-    // Initialize hotkey system
-    lastHotKeyPress = std::chrono::steady_clock::now();
-
     LOG("SuiteSpot: Plugin initialization complete");
 }
 
@@ -503,9 +556,6 @@ void SuiteSpot::Render()
 {
     if (!imgui_ctx) return;
     ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(imgui_ctx));
-
-    // Check for hotkey presses and execute corresponding actions
-    CheckAndHandleHotkeys();
 
     // Render toast notification (hotkey feedback)
     hotKeyToast.Render(ImGui::GetIO().DeltaTime);
@@ -604,70 +654,6 @@ void SuiteSpot::LoadTrainingPacksFromFile(const std::filesystem::path& filePath)
 {
     if (trainingPackMgr) {
         trainingPackMgr->LoadPacksFromFile(filePath);
-    }
-}
-
-// ===== HOTKEY HANDLING =====
-
-void SuiteSpot::CheckAndHandleHotkeys()
-{
-    if (!gameWrapper || !settingsSync || !mapManager) return;
-
-    // Debounce check: Don't process hotkeys faster than HOTKEY_DEBOUNCE_MS
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastHotKeyPress).count();
-    if (elapsed < static_cast<long long>(HOTKEY_DEBOUNCE_MS)) {
-        return; // Too soon, skip this frame
-    }
-
-    // Get hotkey codes from settings
-    int keyMapModeFwd = settingsSync->GetHotkeyMapModeForward();
-    int keyMapModeBk = settingsSync->GetHotkeyMapModeBackward();
-    int keyCycleMapFwd = settingsSync->GetHotkeyCycleMapForward();
-    int keyCycleMapBk = settingsSync->GetHotkeyCycleMapBackward();
-    int keyLoadNow = settingsSync->GetHotkeyLoadNow();
-
-    // Check each hotkey (manual multi-key implementation using AND logic)
-    // For now, these are single-key hotkeys. Multi-key can be added by checking multiple keys with &&
-
-    // Cycle map mode forward
-    if (keyMapModeFwd != 0 && gameWrapper->IsKeyPressed(keyMapModeFwd)) {
-        ShowToastForAction("Switched map mode forward");
-        lastHotKeyPress = now;
-        mapManager->CycleMapMode(true); // Cycle forward
-        return;
-    }
-
-    // Cycle map mode backward
-    if (keyMapModeBk != 0 && gameWrapper->IsKeyPressed(keyMapModeBk)) {
-        ShowToastForAction("Switched map mode backward");
-        lastHotKeyPress = now;
-        mapManager->CycleMapMode(false); // Cycle backward
-        return;
-    }
-
-    // Cycle map forward
-    if (keyCycleMapFwd != 0 && gameWrapper->IsKeyPressed(keyCycleMapFwd)) {
-        ShowToastForAction("Next map");
-        lastHotKeyPress = now;
-        mapManager->CycleMap(true); // Cycle forward
-        return;
-    }
-
-    // Cycle map backward
-    if (keyCycleMapBk != 0 && gameWrapper->IsKeyPressed(keyCycleMapBk)) {
-        ShowToastForAction("Previous map");
-        lastHotKeyPress = now;
-        mapManager->CycleMap(false); // Cycle backward
-        return;
-    }
-
-    // Load current map immediately
-    if (keyLoadNow != 0 && gameWrapper->IsKeyPressed(keyLoadNow)) {
-        ShowToastForAction("Loading current map");
-        lastHotKeyPress = now;
-        // TODO: Call AutoLoadFeature to load current map
-        return;
     }
 }
 
