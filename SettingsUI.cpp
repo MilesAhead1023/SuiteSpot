@@ -82,7 +82,7 @@ void SettingsUI::RenderMainSettingsWindow()
     }
 
     ImGui::SameLine(ImGui::GetWindowWidth() - 150.0f);
-    if (ImGui::Button("LOAD NOW", ImVec2(130, 26))) {
+    if (ImGui::Button("LOAD NOW", ImVec2(0, 26))) {
         int mapType = plugin_->GetMapType();
         SuiteSpot* p = plugin_;
         bool issuedLoad = false;
@@ -557,7 +557,7 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
     // Header with Refresh button
     ImGui::Spacing();
     ImGui::SameLine(ImGui::GetContentRegionAvail().x - 70.0f);
-    if (ImGui::Button("Refresh", ImVec2(70, 0))) {
+    if (ImGui::Button("Refresh", ImVec2(0, 0))) {
         plugin_->LoadWorkshopMaps();
         selectedWorkshopIndex = -1; // Reset selection
     }
@@ -723,7 +723,7 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
 
             // Action buttons
             if (!isCurrentAutoLoad) {
-                if (ImGui::Button("Select for Post-Match", ImVec2(180, 26))) {
+                if (ImGui::Button("Select for Post-Match", ImVec2(0, 26))) {
                     plugin_->settingsSync->SetCurrentWorkshopPath(selectedMap.filePath);
                     plugin_->cvarManager->getCvar("suitespot_current_workshop_path").setValue(selectedMap.filePath);
                     currentWorkshopPath = selectedMap.filePath;
@@ -737,7 +737,7 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
 
             ImGui::SameLine();
 
-            if (ImGui::Button("Load Now", ImVec2(100, 26))) {
+            if (ImGui::Button("Load Now", ImVec2(0, 26))) {
                 SuiteSpot* p = plugin_;
                 std::string path = selectedMap.filePath;
                 p->gameWrapper->SetTimeout(
@@ -786,7 +786,7 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
         ImGui::SetTooltip("Your most-used training packs based on load history");
     }
     ImGui::SameLine();
-    if (ImGui::Button("Open Pack Browser", ImVec2(160, 0))) {
+    if (ImGui::Button("Open Pack Browser", ImVec2(0, 0))) {
         SuiteSpot* p = plugin_;
         p->gameWrapper
             ->SetTimeout([p](GameWrapper* gw) { p->cvarManager->executeCommand("togglemenu suitespot_browser"); }, 0.0f);
@@ -970,7 +970,7 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
 
             // Action buttons
             if (!isPostMatch) {
-                if (ImGui::Button("Select for Post-Match", ImVec2(180, 26))) {
+                if (ImGui::Button("Select for Post-Match", ImVec2(0, 26))) {
                     selectedCode = code;
                     plugin_->settingsSync->SetQuickPicksSelected(code);
                     plugin_->cvarManager->getCvar("suitespot_quickpicks_selected").setValue(code);
@@ -983,7 +983,7 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
                 ImGui::SameLine();
             }
 
-            if (ImGui::Button("Load Now", ImVec2(100, 26))) {
+            if (ImGui::Button("Load Now", ImVec2(0, 26))) {
                 SuiteSpot* p = plugin_;
                 std::string c = code;
                 if (p->usageTracker) p->usageTracker->IncrementLoadCount(c);
@@ -1396,7 +1396,7 @@ void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
             // Download button
             bool hasReleases = !mapResult.releases.empty();
             if (hasReleases) {
-                if (ImGui::Button("Download", ImVec2(180, 26))) {
+                if (ImGui::Button("Download", ImVec2(0, 26))) {
                     if (!plugin_->workshopDownloader->RLMAPS_IsDownloadingWorkshop && fs::exists(mapspath)) {
                         ImGui::OpenPopup("Releases");
                     } else if (!fs::exists(mapspath)) {
@@ -1427,7 +1427,7 @@ void SettingsUI::RenderReleases(RLMAPS_MapResult mapResult, const char* mapspath
         for (int releasesIndex = 0; releasesIndex < mapResult.releases.size(); releasesIndex++) {
             RLMAPS_Release release = mapResult.releases[releasesIndex];
 
-            if (ImGui::Button(release.tag_name.c_str(), ImVec2(182, 20))) {
+            if (ImGui::Button(release.tag_name.c_str(), ImVec2(0, 20))) {
                 if (!plugin_->workshopDownloader->RLMAPS_IsDownloadingWorkshop && fs::exists(mapspath)) {
                     // Donor pattern: spawn thread immediately, it will spin-wait for confirmation
                     auto downloader = plugin_->workshopDownloader;
@@ -1441,7 +1441,7 @@ void SettingsUI::RenderReleases(RLMAPS_MapResult mapResult, const char* mapspath
             }
         }
 
-        if (ImGui::Button("Cancel", ImVec2(182, 20))) {
+        if (ImGui::Button("Cancel", ImVec2(0, 20))) {
             ImGui::CloseCurrentPopup();
         }
 
@@ -1476,10 +1476,10 @@ void SettingsUI::RenderYesNoPopup(const char* popupName, const char* label, std:
         ImGui::Text("%s", label);
         ImGui::NewLine();
 
-        CenterNextItem(208.0f);
+        CenterNextItem(0.0f);
         ImGui::BeginGroup();
         {
-            if (ImGui::Button("YES", ImVec2(100.0f, 25.0f))) {
+            if (ImGui::Button("YES", ImVec2(0, 25.0f))) {
                 try {
                     yesFunc();
                 } catch (const std::exception& ex) {
@@ -1487,7 +1487,7 @@ void SettingsUI::RenderYesNoPopup(const char* popupName, const char* label, std:
                 }
             }
             ImGui::SameLine();
-            if (ImGui::Button("NO", ImVec2(100.0f, 25.0f))) {
+            if (ImGui::Button("NO", ImVec2(0, 25.0f))) {
                 noFunc();
             }
             ImGui::EndGroup();
@@ -1502,8 +1502,8 @@ void SettingsUI::RenderInfoPopup(const char* popupName, const char* label)
     if (ImGui::BeginPopupModal(popupName, NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("%s", label);
         ImGui::NewLine();
-        CenterNextItem(100.0f);
-        if (ImGui::Button("OK", ImVec2(100.0f, 25.0f))) {
+        CenterNextItem(0.0f);
+        if (ImGui::Button("OK", ImVec2(0, 25.0f))) {
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -1569,21 +1569,20 @@ void SettingsUI::RenderDownloadTexturesPopup(const std::vector<std::string>& mis
 
             ImGui::NewLine();
 
-            if (ImGui::Button("Download & Install", ImVec2(140, 25)) && !plugin_->textureDownloader->isDownloading) {
+            if (ImGui::Button("Download & Install", ImVec2(0, 25)) && !plugin_->textureDownloader->isDownloading) {
                 plugin_->textureDownloader->DownloadAndInstallTextures();
             }
 
             ImGui::SameLine();
 
-            if (ImGui::Button("Close", ImVec2(100, 25))) {
+            if (ImGui::Button("Close", ImVec2(0, 25))) {
                 showTexturePopup = false;
                 ImGui::CloseCurrentPopup();
             }
         } else {
             ImGui::Text("Workshop textures are installed!");
             ImGui::NewLine();
-            if (ImGui::Button("OK", ImVec2(100, 25))) {
-                showTexturePopup = false;
+            if (ImGui::Button("OK", ImVec2(0, 25))) {
                 ImGui::CloseCurrentPopup();
             }
         }

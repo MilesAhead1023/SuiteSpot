@@ -17,30 +17,32 @@
 
 // Helper function for sortable column headers with visual indicators
 namespace {
-    bool SortableColumnHeader(const char* label, int columnIndex, int& currentSortColumn, bool& sortAscending) {
-        // Display label with sort indicator if this column is active
-        // Use ASCII arrows (^ v) since Unicode triangles may not be in the font
-        char buffer[256];
-        if (currentSortColumn == columnIndex) {
-            snprintf(buffer, sizeof(buffer), "%s %s", label, sortAscending ? "(asc)" : "(desc)");
-        } else {
-            snprintf(buffer, sizeof(buffer), "%s", label);
-        }
-
-        bool clicked = ImGui::Selectable(buffer, currentSortColumn == columnIndex, ImGuiSelectableFlags_DontClosePopups);
-        if (clicked) {
-            if (currentSortColumn == columnIndex) {
-                sortAscending = !sortAscending;
-            } else {
-                currentSortColumn = columnIndex;
-                sortAscending = true;
-            }
-        }
-        return clicked;
+bool SortableColumnHeader(const char* label, int columnIndex, int& currentSortColumn, bool& sortAscending)
+{
+    // Display label with sort indicator if this column is active
+    // Use ASCII arrows (^ v) since Unicode triangles may not be in the font
+    char buffer[256];
+    if (currentSortColumn == columnIndex) {
+        snprintf(buffer, sizeof(buffer), "%s %s", label, sortAscending ? "(asc)" : "(desc)");
+    } else {
+        snprintf(buffer, sizeof(buffer), "%s", label);
     }
-}
 
-TrainingPackUI::TrainingPackUI(SuiteSpot* plugin) : plugin_(plugin) {
+    bool clicked = ImGui::Selectable(buffer, currentSortColumn == columnIndex, ImGuiSelectableFlags_DontClosePopups);
+    if (clicked) {
+        if (currentSortColumn == columnIndex) {
+            sortAscending = !sortAscending;
+        } else {
+            currentSortColumn = columnIndex;
+            sortAscending = true;
+        }
+    }
+    return clicked;
+}
+} // namespace
+
+TrainingPackUI::TrainingPackUI(SuiteSpot* plugin) : plugin_(plugin)
+{
     auto path = plugin_->GetDataRoot() / "SuiteSpot" / "Resources" / "Icons" / "icon_youtube.png";
     LOG("SuiteSpot: Attempting to load YouTube icon from: " + path.string());
     youtubeIcon = std::make_shared<ImageWrapper>(path.string(), true);
@@ -53,7 +55,8 @@ TrainingPackUI::TrainingPackUI(SuiteSpot* plugin) : plugin_(plugin) {
     });
 }
 
-void TrainingPackUI::Render() {
+void TrainingPackUI::Render()
+{
     if (!isWindowOpen_) {
         return;
     }
@@ -151,7 +154,8 @@ void TrainingPackUI::Render() {
 
     // Early return if no packs loaded
     if (packs.empty()) {
-        ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add your own custom packs below.");
+        ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
+                           "your own custom packs below.");
         ImGui::End();
         return;
     }
@@ -167,7 +171,8 @@ void TrainingPackUI::Render() {
 
     // Early return if no packs loaded
     if (packs.empty()) {
-        ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add your own custom packs above.");
+        ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
+                           "your own custom packs above.");
         ImGui::End();
         return;
     }
@@ -177,12 +182,9 @@ void TrainingPackUI::Render() {
     ImGui::Spacing();
 
     bool filtersChanged = (strcmp(packSearchText, lastSearchText) != 0) ||
-                          (packDifficultyFilter != lastDifficultyFilter) ||
-                          (packTagFilter != lastTagFilter) ||
-                          (packMinShots != lastMinShots) ||
-                          (packSortColumn != lastSortColumn) ||
-                          (packSortAscending != lastSortAscending) ||
-                          (packVideoFilter != lastVideoFilter);
+                          (packDifficultyFilter != lastDifficultyFilter) || (packTagFilter != lastTagFilter) ||
+                          (packMinShots != lastMinShots) || (packSortColumn != lastSortColumn) ||
+                          (packSortAscending != lastSortAscending) || (packVideoFilter != lastVideoFilter);
 
     // Fixed widths for filter controls
     // Search box
@@ -197,7 +199,8 @@ void TrainingPackUI::Render() {
     // Difficulty filter
     ImGui::SameLine();
     ImGui::SetNextItemWidth(150.0f);
-    const char* difficulties[] = {"All", "Unranked", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Champion", "Grand Champion", "Supersonic Legend"};
+    const char* difficulties[] = {"All",      "Unranked", "Bronze",   "Silver",         "Gold",
+                                  "Platinum", "Diamond",  "Champion", "Grand Champion", "Supersonic Legend"};
     if (ImGui::BeginCombo("##difficulty", packDifficultyFilter.c_str())) {
         for (int i = 0; i < IM_ARRAYSIZE(difficulties); i++) {
             bool selected = (packDifficultyFilter == difficulties[i]);
@@ -215,7 +218,8 @@ void TrainingPackUI::Render() {
     // Shot count range filter
     ImGui::SameLine();
     ImGui::SetNextItemWidth(150.0f);
-    if (ImGui::SliderInt("Min Shots", &packMinShots, UI::TrainingPackUI::FILTER_MIN_SHOTS_MIN, UI::TrainingPackUI::FILTER_MIN_SHOTS_MAX)) {
+    if (ImGui::SliderInt("Min Shots", &packMinShots, UI::TrainingPackUI::FILTER_MIN_SHOTS_MIN,
+                         UI::TrainingPackUI::FILTER_MIN_SHOTS_MAX)) {
         filtersChanged = true;
     }
     if (ImGui::IsItemHovered()) {
@@ -283,8 +287,8 @@ void TrainingPackUI::Render() {
     // Rebuild filtered list only when needed
     if (filtersChanged || packsSourceChanged || !packListInitialized) {
         if (manager) {
-            manager->FilterAndSortPacks(packSearchText, packDifficultyFilter, packTagFilter,
-                packMinShots, packVideoFilter, packSortColumn, packSortAscending, filteredPacks);
+            manager->FilterAndSortPacks(packSearchText, packDifficultyFilter, packTagFilter, packMinShots,
+                                        packVideoFilter, packSortColumn, packSortAscending, filteredPacks);
         } else {
             filteredPacks.clear();
         }
@@ -320,7 +324,7 @@ void TrainingPackUI::Render() {
 
     {
         bool hasSelection = !selectedPackCode.empty();
-        
+
         // Find selected pack data
         const TrainingEntry* selectedPack = nullptr;
         if (hasSelection) {
@@ -334,13 +338,13 @@ void TrainingPackUI::Render() {
 
         // Delete (Custom only)
         if (hasSelection) {
-             if (ImGui::Button("Delete Custom Pack")) {
-                 if (plugin_->trainingPackMgr) {
-                     plugin_->trainingPackMgr->DeletePack(selectedPackCode);
-                     browserStatus.ShowSuccess("Deleted custom pack", 3.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
-                     selectedPackCode = "";
-                 }
-             }
+            if (ImGui::Button("Delete Custom Pack")) {
+                if (plugin_->trainingPackMgr) {
+                    plugin_->trainingPackMgr->DeletePack(selectedPackCode);
+                    browserStatus.ShowSuccess("Deleted custom pack", 3.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                    selectedPackCode = "";
+                }
+            }
         } else {
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
             ImGui::Button("Delete Custom Pack");
@@ -423,7 +427,8 @@ void TrainingPackUI::Render() {
     ImGui::Separator();
 
     // ===== SCROLLABLE PACK ROWS =====
-    ImGui::BeginChild("PackTable", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("PackTable", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false,
+                      ImGuiWindowFlags_HorizontalScrollbar);
 
     ImGui::Columns(activeColumnCount, "PackColumns_Body", true);
 
@@ -434,10 +439,8 @@ void TrainingPackUI::Render() {
     ImGuiListClipper clipper;
     clipper.Begin((int)filteredPacks.size());
 
-    while (clipper.Step())
-    {
-        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
-        {
+    while (clipper.Step()) {
+        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
             const auto& pack = filteredPacks[row];
 
             // Name column with Selection Logic
@@ -470,7 +473,7 @@ void TrainingPackUI::Render() {
                     ShellExecuteA(NULL, "open", pack.videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
                 }
                 if (ImGui::IsItemHovered()) ImGui::SetTooltip("Watch Preview");
-                
+
                 ImGui::SetItemAllowOverlap();
                 ImGui::SameLine();
             } else {
@@ -488,8 +491,8 @@ void TrainingPackUI::Render() {
 
             if (ImGui::BeginPopup("PackActionPopup")) {
                 const auto& trainingPacks = manager ? manager->GetPacks() : emptyPacks;
-                auto it = std::find_if(trainingPacks.begin(), trainingPacks.end(), 
-                    [&](const TrainingEntry& e) { return e.code == selectedPackCode; });
+                auto it = std::find_if(trainingPacks.begin(), trainingPacks.end(),
+                                       [&](const TrainingEntry& e) { return e.code == selectedPackCode; });
 
                 if (it != trainingPacks.end()) {
                     ImGui::TextColored(UI::TrainingPackUI::SECTION_HEADER_TEXT_COLOR, "%s", it->name.c_str());
@@ -501,7 +504,8 @@ void TrainingPackUI::Render() {
                         // Also sync with current training code for consistency
                         plugin_->settingsSync->SetCurrentTrainingCode(selectedPackCode);
                         plugin_->cvarManager->getCvar("suitespot_current_training_code").setValue(selectedPackCode);
-                        browserStatus.ShowSuccess("Post-Match set: " + it->name, 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                        browserStatus.ShowSuccess("Post-Match set: " + it->name, 2.0f,
+                                                  UI::StatusMessage::DisplayMode::TimerWithFade);
                     }
 
                     if (ImGui::Selectable("Load Now")) {
@@ -509,10 +513,12 @@ void TrainingPackUI::Render() {
                         std::string code = selectedPackCode;
                         std::string name = it->name;
                         SuiteSpot* p = plugin_;
-                        p->gameWrapper->SetTimeout([p, code, name](GameWrapper* gw) {
-                            p->cvarManager->executeCommand("load_training " + code);
-                            LOG("SuiteSpot: Loading training pack from browser: " + name);
-                        }, 0.0f);
+                        p->gameWrapper->SetTimeout(
+                            [p, code, name](GameWrapper* gw) {
+                                p->cvarManager->executeCommand("load_training " + code);
+                                LOG("SuiteSpot: Loading training pack from browser: " + name);
+                            },
+                            0.0f);
                         if (plugin_->cvarManager) {
                             plugin_->cvarManager->executeCommand("togglemenu settings");
                         }
@@ -541,7 +547,8 @@ void TrainingPackUI::Render() {
                 if (ImGui::Selectable("Set as Auto-Load")) {
                     plugin_->settingsSync->SetCurrentTrainingCode(pack.code);
                     plugin_->cvarManager->getCvar("suitespot_current_training_code").setValue(pack.code);
-                    browserStatus.ShowSuccess("Auto-Load set: " + pack.name, 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                    browserStatus.ShowSuccess("Auto-Load set: " + pack.name, 2.0f,
+                                              UI::StatusMessage::DisplayMode::TimerWithFade);
                 }
                 ImGui::EndPopup();
             }
@@ -582,20 +589,28 @@ void TrainingPackUI::Render() {
             // Difficulty column with color coding
             ImVec4 diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_UNRANKED_COLOR;
             std::string displayDifficulty = pack.difficulty;
-            
+
             if (displayDifficulty.empty() || displayDifficulty == "Unknown" || displayDifficulty == "All") {
                 displayDifficulty = "Unranked";
             }
 
-            if (displayDifficulty == "Bronze") diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_BRONZE_COLOR;
-            else if (displayDifficulty == "Silver") diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_SILVER_COLOR;
-            else if (displayDifficulty == "Gold") diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_GOLD_COLOR;
-            else if (displayDifficulty == "Platinum") diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_PLATINUM_COLOR;
-            else if (displayDifficulty == "Diamond") diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_DIAMOND_COLOR;
-            else if (displayDifficulty == "Champion") diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_CHAMPION_COLOR;
-            else if (displayDifficulty == "Grand Champion") diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_GRAND_CHAMPION_COLOR;
-            else if (displayDifficulty == "Supersonic Legend") diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_SUPERSONIC_LEGEND_COLOR;
-            
+            if (displayDifficulty == "Bronze")
+                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_BRONZE_COLOR;
+            else if (displayDifficulty == "Silver")
+                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_SILVER_COLOR;
+            else if (displayDifficulty == "Gold")
+                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_GOLD_COLOR;
+            else if (displayDifficulty == "Platinum")
+                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_PLATINUM_COLOR;
+            else if (displayDifficulty == "Diamond")
+                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_DIAMOND_COLOR;
+            else if (displayDifficulty == "Champion")
+                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_CHAMPION_COLOR;
+            else if (displayDifficulty == "Grand Champion")
+                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_GRAND_CHAMPION_COLOR;
+            else if (displayDifficulty == "Supersonic Legend")
+                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_SUPERSONIC_LEGEND_COLOR;
+
             ImGui::TextColored(diffColor, "%s", displayDifficulty.c_str());
             ImGui::NextColumn();
 
@@ -621,22 +636,22 @@ void TrainingPackUI::Render() {
     ImGui::End();
 }
 
-
-
-bool TrainingPackUI::ValidatePackCode(const char* code) const {
+bool TrainingPackUI::ValidatePackCode(const char* code) const
+{
     if (strlen(code) != UI::TrainingPackUI::PACK_CODE_EXPECTED_LENGTH) return false;
     for (int i = 0; i < UI::TrainingPackUI::PACK_CODE_EXPECTED_LENGTH; i++) {
-        if (i == UI::TrainingPackUI::PACK_CODE_DASH_POSITION_1 || i == UI::TrainingPackUI::PACK_CODE_DASH_POSITION_2 || i == UI::TrainingPackUI::PACK_CODE_DASH_POSITION_3) {
+        if (i == UI::TrainingPackUI::PACK_CODE_DASH_POSITION_1 || i == UI::TrainingPackUI::PACK_CODE_DASH_POSITION_2 ||
+            i == UI::TrainingPackUI::PACK_CODE_DASH_POSITION_3) {
             if (code[i] != '-') return false;
-        }
-        else {
+        } else {
             if (!isalnum(static_cast<unsigned char>(code[i]))) return false;
         }
     }
     return true;
 }
 
-void TrainingPackUI::ClearCustomPackForm() {
+void TrainingPackUI::ClearCustomPackForm()
+{
     customPackCode[0] = '\0';
     customPackName[0] = '\0';
     customPackCreator[0] = '\0';
@@ -648,7 +663,8 @@ void TrainingPackUI::ClearCustomPackForm() {
     customPackStatus.Clear();
 }
 
-void TrainingPackUI::RenderCustomPackForm() {
+void TrainingPackUI::RenderCustomPackForm()
+{
     if (ImGui::CollapsingHeader("Add Custom Pack")) {
         ImGui::Indent(UI::TrainingPackUI::CUSTOM_PACK_FORM_INDENT);
         ImGui::Spacing();
@@ -670,7 +686,8 @@ void TrainingPackUI::RenderCustomPackForm() {
                     raw += static_cast<char>(toupper(static_cast<unsigned char>(c)));
                 }
             }
-            if (raw.length() > UI::TrainingPackUI::PACK_CODE_RAW_MAX_LENGTH) raw = raw.substr(0, UI::TrainingPackUI::PACK_CODE_RAW_MAX_LENGTH);
+            if (raw.length() > UI::TrainingPackUI::PACK_CODE_RAW_MAX_LENGTH)
+                raw = raw.substr(0, UI::TrainingPackUI::PACK_CODE_RAW_MAX_LENGTH);
             std::string formatted;
             for (size_t i = 0; i < raw.length(); i++) {
                 if (i > 0 && i % 4 == 0) formatted += '-';
@@ -689,12 +706,14 @@ void TrainingPackUI::RenderCustomPackForm() {
 
         ImGui::TextUnformatted("Difficulty");
         ImGui::SetNextItemWidth(UI::TrainingPackUI::CUSTOM_PACK_DIFFICULTY_DROPDOWN_WIDTH);
-        const char* difficulties[] = {"Unranked", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Champion", "Grand Champion", "Supersonic Legend"};
+        const char* difficulties[] = {"Unranked", "Bronze",         "Silver",           "Gold", "Platinum", "Diamond",
+                                      "Champion", "Grand Champion", "Supersonic Legend"};
         ImGui::Combo("##customdifficulty", &customPackDifficulty, difficulties, IM_ARRAYSIZE(difficulties));
 
         ImGui::TextUnformatted("Shot Count");
         ImGui::SetNextItemWidth(200);
-        ImGui::SliderInt("##customshots", &customPackShotCount, UI::TrainingPackUI::CUSTOM_PACK_SHOTS_MIN, UI::TrainingPackUI::CUSTOM_PACK_SHOTS_MAX);
+        ImGui::SliderInt("##customshots", &customPackShotCount, UI::TrainingPackUI::CUSTOM_PACK_SHOTS_MIN,
+                         UI::TrainingPackUI::CUSTOM_PACK_SHOTS_MAX);
 
         ImGui::TextUnformatted("Tags");
         ImGui::SameLine();
@@ -703,7 +722,9 @@ void TrainingPackUI::RenderCustomPackForm() {
         ImGui::InputText("##customtags", customPackTags, IM_ARRAYSIZE(customPackTags));
 
         ImGui::TextUnformatted("Notes");
-        ImGui::InputTextMultiline("##customnotes", customPackNotes, IM_ARRAYSIZE(customPackNotes), ImVec2(UI::TrainingPackUI::CUSTOM_PACK_NOTES_INPUT_WIDTH, UI::TrainingPackUI::CUSTOM_PACK_NOTES_INPUT_HEIGHT));
+        ImGui::InputTextMultiline("##customnotes", customPackNotes, IM_ARRAYSIZE(customPackNotes),
+                                  ImVec2(UI::TrainingPackUI::CUSTOM_PACK_NOTES_INPUT_WIDTH,
+                                         UI::TrainingPackUI::CUSTOM_PACK_NOTES_INPUT_HEIGHT));
 
         ImGui::TextUnformatted("Video URL");
         ImGui::SetNextItemWidth(UI::TrainingPackUI::CUSTOM_PACK_VIDEO_URL_INPUT_WIDTH);
@@ -711,23 +732,22 @@ void TrainingPackUI::RenderCustomPackForm() {
 
         ImGui::Spacing();
 
-        if (ImGui::Button("Add Pack", ImVec2(UI::TrainingPackUI::CUSTOM_PACK_ADD_BUTTON_WIDTH, UI::TrainingPackUI::CUSTOM_PACK_ADD_BUTTON_HEIGHT))) {
+        if (ImGui::Button("Add Pack", ImVec2(0, UI::TrainingPackUI::CUSTOM_PACK_ADD_BUTTON_HEIGHT))) {
             customPackStatus.Clear();
             if (strlen(customPackCode) == 0) {
                 customPackStatus.ShowError("Pack code is required");
-            }
-            else if (!ValidatePackCode(customPackCode)) {
+            } else if (!ValidatePackCode(customPackCode)) {
                 customPackStatus.ShowError("Invalid code format. Expected: XXXX-XXXX-XXXX-XXXX");
-            }
-            else if (strlen(customPackName) == 0) {
+            } else if (strlen(customPackName) == 0) {
                 customPackStatus.ShowError("Pack name is required");
-            }
-            else {
+            } else {
                 TrainingEntry pack;
                 pack.code = customPackCode;
                 pack.name = customPackName;
                 pack.creator = strlen(customPackCreator) > 0 ? customPackCreator : "Unknown";
-                const char* difficultyNames[] = {"Unranked", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Champion", "Grand Champion", "Supersonic Legend"};
+                const char* difficultyNames[] = {"Unranked", "Bronze",         "Silver",
+                                                 "Gold",     "Platinum",       "Diamond",
+                                                 "Champion", "Grand Champion", "Supersonic Legend"};
                 pack.difficulty = difficultyNames[customPackDifficulty];
                 pack.shotCount = customPackShotCount;
                 if (strlen(customPackTags) > 0) {
@@ -769,7 +789,7 @@ void TrainingPackUI::RenderCustomPackForm() {
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Clear", ImVec2(UI::TrainingPackUI::CUSTOM_PACK_CLEAR_BUTTON_WIDTH, UI::TrainingPackUI::CUSTOM_PACK_CLEAR_BUTTON_HEIGHT))) {
+        if (ImGui::Button("Clear", ImVec2(0, UI::TrainingPackUI::CUSTOM_PACK_CLEAR_BUTTON_HEIGHT))) {
             ClearCustomPackForm();
         }
         ImGui::Spacing();
@@ -779,7 +799,8 @@ void TrainingPackUI::RenderCustomPackForm() {
     }
 }
 
-bool TrainingPackUI::ShouldShowCodeColumn() const {
+bool TrainingPackUI::ShouldShowCodeColumn() const
+{
     for (size_t i = 0; packSearchText[i] != '\0'; i++) {
         if (std::isdigit(static_cast<unsigned char>(packSearchText[i]))) {
             return true;
@@ -788,7 +809,8 @@ bool TrainingPackUI::ShouldShowCodeColumn() const {
     return false;
 }
 
-void TrainingPackUI::CalculateOptimalColumnWidths() {
+void TrainingPackUI::CalculateOptimalColumnWidths()
+{
     float availWidth = ImGui::GetWindowContentRegionWidth();
     int columnCount = ShouldShowCodeColumn() ? 6 : 5;
     columnWidths.assign(columnCount, 0.0f);
@@ -812,26 +834,32 @@ void TrainingPackUI::CalculateOptimalColumnWidths() {
 
     // Apply minimum widths to ensure readability
     for (int i = 0; i < columnCount; i++) {
-        if (i == 0 && columnWidths[i] < 150.0f) columnWidths[i] = 150.0f;
-        else if (columnWidths[i] < 60.0f) columnWidths[i] = 60.0f;
+        if (i == 0 && columnWidths[i] < 150.0f)
+            columnWidths[i] = 150.0f;
+        else if (columnWidths[i] < 60.0f)
+            columnWidths[i] = 60.0f;
     }
 }
 
-std::string TrainingPackUI::GetMenuName() {
+std::string TrainingPackUI::GetMenuName()
+{
     return "suitespot_browser";
 }
 
-std::string TrainingPackUI::GetMenuTitle() {
+std::string TrainingPackUI::GetMenuTitle()
+{
     return "SuiteSpot Training Browser";
 }
 
-void TrainingPackUI::SetImGuiContext(uintptr_t ctx) {
+void TrainingPackUI::SetImGuiContext(uintptr_t ctx)
+{
     ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx));
 }
 
-bool TrainingPackUI::ShouldBlockInput() {
+bool TrainingPackUI::ShouldBlockInput()
+{
     if (!isWindowOpen_) {
-        return false;  // Window closed → no blocking
+        return false; // Window closed → no blocking
     }
 
     // ============================================================================
@@ -866,28 +894,34 @@ bool TrainingPackUI::ShouldBlockInput() {
     return false;
 }
 
-bool TrainingPackUI::IsActiveOverlay() {
+bool TrainingPackUI::IsActiveOverlay()
+{
     return isWindowOpen_;
 }
 
-void TrainingPackUI::OnOpen() {
+void TrainingPackUI::OnOpen()
+{
     isWindowOpen_ = true;
-    needsFocusOnNextRender_ = true;  // Bring window to front on next render
+    needsFocusOnNextRender_ = true; // Bring window to front on next render
 }
 
-void TrainingPackUI::OnClose() {
+void TrainingPackUI::OnClose()
+{
     isWindowOpen_ = false;
 }
 
-bool TrainingPackUI::IsOpen() {
+bool TrainingPackUI::IsOpen()
+{
     return isWindowOpen_;
 }
 
-void TrainingPackUI::SetOpen(bool open) {
+void TrainingPackUI::SetOpen(bool open)
+{
     isWindowOpen_ = open;
 }
 
-void TrainingPackUI::LoadPackImmediately(const std::string& packCode) {
+void TrainingPackUI::LoadPackImmediately(const std::string& packCode)
+{
     if (packCode.empty() || !plugin_) return;
 
     // Increment usage stats
@@ -910,13 +944,14 @@ void TrainingPackUI::LoadPackImmediately(const std::string& packCode) {
     // Execute load immediately (0 delay)
     SuiteSpot* p = plugin_;
     std::string code = packCode;
-    p->gameWrapper->SetTimeout([p, code, packName](GameWrapper* gw) {
-        p->cvarManager->executeCommand("load_training " + code);
-        LOG("SuiteSpot: Loading training pack immediately: {}", packName);
-    }, 0.0f);
+    p->gameWrapper->SetTimeout(
+        [p, code, packName](GameWrapper* gw) {
+            p->cvarManager->executeCommand("load_training " + code);
+            LOG("SuiteSpot: Loading training pack immediately: {}", packName);
+        },
+        0.0f);
 
-    browserStatus.ShowSuccess("Loading: " + packName, 2.0f,
-        UI::StatusMessage::DisplayMode::TimerWithFade);
+    browserStatus.ShowSuccess("Loading: " + packName, 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
 
     if (plugin_->cvarManager) {
         plugin_->cvarManager->executeCommand("togglemenu settings");
