@@ -72,18 +72,40 @@ void TrainingPackUI::Render()
     // Only prevent bringing to front when modals or special states need focus control
     ImGuiWindowFlags browserFlags = ImGuiWindowFlags_None;
 
-    // Interactive control styling: border + rounding on all buttons, checkboxes, inputs, etc.
+    // Style vars (11)
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, UI::INTERACTIVE_FRAME_BORDER_SIZE);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, UI::INTERACTIVE_FRAME_ROUNDING);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, UI::FRAME_PADDING);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, UI::ITEM_SPACING);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, UI::WINDOW_PADDING);
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, UI::CHILD_ROUNDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, UI::CHILD_BORDER_SIZE);
+    ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, UI::TAB_ROUNDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, UI::GRAB_ROUNDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, UI::GRAB_MIN_SIZE);
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, UI::SCROLLBAR_ROUNDING);
+    // Colors (17)
     ImGui::PushStyleColor(ImGuiCol_Border, UI::INTERACTIVE_BORDER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_Button, UI::BUTTON_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::BUTTON_HOVER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, UI::BUTTON_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, UI::FRAME_BG_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, UI::FRAME_BG_HOVER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, UI::FRAME_BG_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, UI::CHECKMARK_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_Header, UI::HEADER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, UI::HEADER_HOVER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, UI::HEADER_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_Tab, UI::TAB_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_TabHovered, UI::TAB_HOVER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_TabActive, UI::TAB_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_TabUnfocused, UI::TAB_UNFOCUSED_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, UI::TAB_UNFOCUSED_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, UI::CHILD_BG_COLOR);
 
     if (!ImGui::Begin(GetMenuTitle().c_str(), &isWindowOpen_, browserFlags)) {
-        ImGui::PopStyleColor(1);
-        ImGui::PopStyleVar(6);
+        ImGui::PopStyleColor(17);
+        ImGui::PopStyleVar(11);
         ImGui::End();
         return;
     }
@@ -167,8 +189,8 @@ void TrainingPackUI::Render()
     if (packs.empty()) {
         ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
                            "your own custom packs below.");
-        ImGui::PopStyleColor(1);
-        ImGui::PopStyleVar(6);
+        ImGui::PopStyleColor(17);
+        ImGui::PopStyleVar(11);
         ImGui::End();
         return;
     }
@@ -186,8 +208,8 @@ void TrainingPackUI::Render()
     if (packs.empty()) {
         ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
                            "your own custom packs above.");
-        ImGui::PopStyleColor(1);
-        ImGui::PopStyleVar(6);
+        ImGui::PopStyleColor(17);
+        ImGui::PopStyleVar(11);
         ImGui::End();
         return;
     }
@@ -648,8 +670,8 @@ void TrainingPackUI::Render()
     ImGui::EndChild();
 
     ImGui::Spacing();
-    ImGui::PopStyleColor(1);
-    ImGui::PopStyleVar(6);
+    ImGui::PopStyleColor(17);
+    ImGui::PopStyleVar(11);
     ImGui::End();
 }
 

@@ -27,14 +27,36 @@ void SettingsUI::RenderMainSettingsWindow()
         return;
     }
 
-    // Interactive control styling: border + rounding on all buttons, checkboxes, inputs, etc.
+    // Style vars (11)
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, UI::INTERACTIVE_FRAME_BORDER_SIZE);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, UI::INTERACTIVE_FRAME_ROUNDING);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, UI::FRAME_PADDING);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, UI::ITEM_SPACING);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, UI::WINDOW_PADDING);
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, UI::CHILD_ROUNDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, UI::CHILD_BORDER_SIZE);
+    ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, UI::TAB_ROUNDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, UI::GRAB_ROUNDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, UI::GRAB_MIN_SIZE);
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, UI::SCROLLBAR_ROUNDING);
+    // Colors (17)
     ImGui::PushStyleColor(ImGuiCol_Border, UI::INTERACTIVE_BORDER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_Button, UI::BUTTON_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::BUTTON_HOVER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, UI::BUTTON_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, UI::FRAME_BG_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, UI::FRAME_BG_HOVER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, UI::FRAME_BG_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, UI::CHECKMARK_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_Header, UI::HEADER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, UI::HEADER_HOVER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, UI::HEADER_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_Tab, UI::TAB_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_TabHovered, UI::TAB_HOVER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_TabActive, UI::TAB_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_TabUnfocused, UI::TAB_UNFOCUSED_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, UI::TAB_UNFOCUSED_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, UI::CHILD_BG_COLOR);
 
     ImGui::SetWindowFontScale(UI::FONT_SCALE);
 
@@ -440,8 +462,8 @@ void SettingsUI::RenderMainSettingsWindow()
         ImGui::PopStyleVar();
     }
 
-    ImGui::PopStyleColor(1); // ImGuiCol_Border
-    ImGui::PopStyleVar(6);   // FrameBorderSize, FrameRounding, FramePadding, ItemSpacing, WindowPadding, ChildRounding
+    ImGui::PopStyleColor(17); // all color pushes
+    ImGui::PopStyleVar(11);   // all style var pushes
 }
 
 void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue)
@@ -1173,12 +1195,10 @@ void SettingsUI::RenderWorkshopBrowserTab()
         pathInit = true;
     }
 
-    // Download destination path
+    // Download destination path — full width on its own line
     ImGui::Text("Download to:");
-    ImGui::SetNextItemWidth(400.0f);
+    ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputText("##WorkshopPath", workshopDownloadPathBuf, IM_ARRAYSIZE(workshopDownloadPathBuf));
-
-    ImGui::SameLine();
     RenderTextureCheck();
 
     ImGui::SameLine();
@@ -1193,9 +1213,12 @@ void SettingsUI::RenderWorkshopBrowserTab()
 
     ImGui::Spacing();
 
-    // API Search — fetches from RLMAPS
+    // API Search — fetches from RLMAPS; input width leaves room for Search button
     ImGui::Text("Search Maps:");
-    ImGui::SetNextItemWidth(400.0f);
+    {
+        float searchBtnW = ImGui::CalcTextSize("Search").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - searchBtnW - ImGui::GetStyle().ItemSpacing.x);
+    }
     bool enterPressed = ImGui::InputText("##WorkshopSearch", workshopSearchBuf, IM_ARRAYSIZE(workshopSearchBuf),
                                          ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
@@ -1222,7 +1245,13 @@ void SettingsUI::RenderWorkshopBrowserTab()
     if (!cachedResultList.empty()) {
         ImGui::Spacing();
         ImGui::Text("Filter & Rank:");
-        ImGui::SetNextItemWidth(400.0f);
+        {
+            float clearBtnW = ImGui::CalcTextSize("Clear").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            float w = strlen(localFilterBuf) > 0
+                          ? ImGui::GetContentRegionAvail().x - clearBtnW - ImGui::GetStyle().ItemSpacing.x
+                          : -1.0f;
+            ImGui::SetNextItemWidth(w);
+        }
         ImGui::InputText("##LocalFilter", localFilterBuf, IM_ARRAYSIZE(localFilterBuf));
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Type to filter and rank results by relevance. Closer matches appear first.");

@@ -37,6 +37,49 @@ inline const ImVec2 WINDOW_PADDING = {10.0f, 8.0f};
 // Corner rounding (px) for child panel borders — matches FrameRounding
 constexpr float CHILD_ROUNDING = 4.0f;
 
+// Border size for child windows (panels, sub-panels) — separate from FrameBorderSize
+constexpr float CHILD_BORDER_SIZE = 1.0f;
+
+// Corner rounding for tab items
+constexpr float TAB_ROUNDING = 3.0f;
+
+// Corner rounding for slider/scrollbar grab handles
+constexpr float GRAB_ROUNDING = 2.0f;
+
+// Minimum pixel size for slider grab handles
+constexpr float GRAB_MIN_SIZE = 10.0f;
+
+// Corner rounding for scrollbar handles
+constexpr float SCROLLBAR_ROUNDING = 3.0f;
+
+// --- Button colors (visible dark-blue-slate so buttons stand out from window bg) ---
+inline const ImVec4 BUTTON_COLOR = ImVec4(0.22f, 0.28f, 0.40f, 0.80f);
+inline const ImVec4 BUTTON_HOVER_COLOR = ImVec4(0.30f, 0.40f, 0.58f, 0.90f);
+inline const ImVec4 BUTTON_ACTIVE_COLOR = ImVec4(0.38f, 0.52f, 0.72f, 1.00f);
+
+// --- Frame background colors for inputs, checkboxes, combos ---
+inline const ImVec4 FRAME_BG_COLOR = ImVec4(0.16f, 0.18f, 0.24f, 1.00f);
+inline const ImVec4 FRAME_BG_HOVER_COLOR = ImVec4(0.22f, 0.26f, 0.34f, 1.00f);
+inline const ImVec4 FRAME_BG_ACTIVE_COLOR = ImVec4(0.28f, 0.34f, 0.46f, 1.00f);
+
+// CheckMark color drawn inside checkboxes
+inline const ImVec4 CHECKMARK_COLOR = ImVec4(0.65f, 0.88f, 1.00f, 1.00f);
+
+// --- Selectable / list-row highlight colors (Header in ImGui parlance) ---
+inline const ImVec4 HEADER_COLOR = ImVec4(0.25f, 0.40f, 0.60f, 0.65f);
+inline const ImVec4 HEADER_HOVER_COLOR = ImVec4(0.30f, 0.48f, 0.68f, 0.75f);
+inline const ImVec4 HEADER_ACTIVE_COLOR = ImVec4(0.35f, 0.55f, 0.78f, 1.00f);
+
+// --- Tab colors ---
+inline const ImVec4 TAB_COLOR = ImVec4(0.16f, 0.18f, 0.24f, 0.90f);
+inline const ImVec4 TAB_HOVER_COLOR = ImVec4(0.28f, 0.38f, 0.52f, 1.00f);
+inline const ImVec4 TAB_ACTIVE_COLOR = ImVec4(0.22f, 0.32f, 0.48f, 1.00f);
+inline const ImVec4 TAB_UNFOCUSED_COLOR = ImVec4(0.12f, 0.14f, 0.18f, 0.80f);
+inline const ImVec4 TAB_UNFOCUSED_ACTIVE_COLOR = ImVec4(0.18f, 0.24f, 0.36f, 1.00f);
+
+// Child window background — slightly darker than outer window for depth
+inline const ImVec4 CHILD_BG_COLOR = ImVec4(0.10f, 0.11f, 0.15f, 0.60f);
+
 // ===================================================================
 // SETTINGS UI CONSTANTS
 // ===================================================================
