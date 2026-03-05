@@ -1,6 +1,9 @@
 # Playwright-cli browser automation artifacts
 .playwright-cli/
 
+# Claude AI agent memory/state files
+.claude/
+
 # User-specific files
 *.rsuser
 *.suo
