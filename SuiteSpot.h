@@ -37,7 +37,6 @@
 #include "LoadoutManager.h"
 #include "PackUsageTracker.h"
 #include "TextureDownloader.h"
-#include "StatusMessageUI.h"
 #include "version.h"
 #include <filesystem>
 #include <set>
@@ -153,9 +152,6 @@ class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
     ImFont* clockFont = nullptr;
     std::atomic<bool> isRenderingSettings{false};
     std::thread textureDownloadThread; // Managed texture download thread
-
-    // Toast notification system for hotkey feedback
-    UI::StatusMessage hotKeyToast;
 
     // Hotkey capture state
     int captureRow = -1;

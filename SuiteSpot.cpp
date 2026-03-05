@@ -599,9 +599,6 @@ void SuiteSpot::Render()
     if (!imgui_ctx) return;
     ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(imgui_ctx));
 
-    // Render toast notification (hotkey feedback)
-    hotKeyToast.RenderOverlay(ImGui::GetIO().DeltaTime);
-
     // Note: TrainingPackUI is a PluginWindow registered with BakkesMod,
     // so it's rendered automatically by the framework. No need to call it here.
 }
@@ -701,25 +698,17 @@ void SuiteSpot::LoadTrainingPacksFromFile(const std::filesystem::path& filePath)
 
 void SuiteSpot::ShowToastForAction(const std::string& actionName)
 {
-    // Build message with action + current selection
-    std::string message = actionName;
-
-    // Append current map/pack info if available
     int mapType = settingsSync->GetMapType();
     std::string currentSelection;
 
-    if (mapType == 0) { // Freeplay
+    if (mapType == 0) {
         currentSelection = settingsSync->GetCurrentFreeplayCode();
-    } else if (mapType == 1) { // Training
+    } else if (mapType == 1) {
         currentSelection = settingsSync->GetCurrentTrainingCode();
-    } else if (mapType == 2) { // Workshop
+    } else if (mapType == 2) {
         currentSelection = settingsSync->GetCurrentWorkshopPath();
     }
 
-    if (!currentSelection.empty()) {
-        message += " • " + currentSelection;
-    }
-
-    // Display toast with 7-second fade
-    hotKeyToast.ShowInfo(message, 7.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+    std::string body = currentSelection.empty() ? "" : currentSelection;
+    gameWrapper->Toast("SuiteSpot", actionName + (body.empty() ? "" : " • " + body), "default", 3.5f, ToastType_Info);
 }
