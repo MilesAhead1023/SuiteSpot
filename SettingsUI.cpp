@@ -325,7 +325,7 @@ void SettingsUI::RenderMainSettingsWindow()
         if (ImGui::BeginTabItem("Hotkeys")) {
             ImGui::Spacing();
             ImGui::TextDisabled("Click \xe2\x97\x8f to capture a key press, or type the UE3 name manually.");
-            ImGui::TextDisabled("Key 1 = trigger.  Key 2 = held combo partner (optional).");
+            ImGui::TextDisabled("Key 1 = trigger.  Key 2 = required held modifier.  Both must be set.");
             ImGui::TextDisabled("Xbox buttons are captured automatically.");
             ImGui::Spacing();
             ImGui::Separator();
@@ -391,7 +391,20 @@ void SettingsUI::RenderMainSettingsWindow()
                 ImGui::TextUnformatted("+");
                 ImGui::SameLine(0, 6);
                 renderSlot(1, row.key2CVar, "##k2", "##cb2", "X##k2x",
-                           "Held key — must also be down when Key 1 fires (empty = single-key bind)");
+                           "Required held modifier — must be held when Key 1 fires. Both keys must be set.");
+
+                // Validation: key1 set without key2 is invalid (dual-key required)
+                {
+                    char k1[64] = {}, k2[64] = {};
+                    if (auto c = plugin_->cvarManager->getCvar(row.key1CVar); !c.IsNull())
+                        strncpy_s(k1, c.getStringValue().c_str(), sizeof(k1) - 1);
+                    if (auto c = plugin_->cvarManager->getCvar(row.key2CVar); !c.IsNull())
+                        strncpy_s(k2, c.getStringValue().c_str(), sizeof(k2) - 1);
+                    if (k1[0] != '\0' && k2[0] == '\0') {
+                        ImGui::SameLine(0, 8);
+                        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "(!) set Key 2");
+                    }
+                }
 
                 ImGui::NextColumn();
                 ImGui::PopID();

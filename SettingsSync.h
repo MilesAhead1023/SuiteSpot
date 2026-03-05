@@ -53,7 +53,7 @@ class SettingsSync
     std::string GetQuickPicksSelectedCode() const { return quickPicksSelected; }
     std::string GetCurrentWorkshopPath() const { return currentWorkshopPath; }
 
-    // Hotkey getters — key1 triggers via setBind; key2 (optional) must also be held for combos
+    // Hotkey getters — key1 = trigger, key2 = required held modifier (both must be set)
     std::string GetHotkeyMapModeFwdKey1() const { return hotkeyMapModeFwdKey; }
     std::string GetHotkeyMapModeFwdKey2() const { return hotkeyMapModeFwdKey2; }
     std::string GetHotkeyMapModeBkKey1() const { return hotkeyMapModeBkKey; }

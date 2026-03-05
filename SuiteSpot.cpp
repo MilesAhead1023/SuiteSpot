@@ -259,162 +259,101 @@ void SuiteSpot::LoadHooks()
         "ss_heal_current_pack", [this](std::vector<std::string> args) { TryHealCurrentPack(gameWrapper.get()); },
         "Manually heal the currently loaded training pack", PERMISSION_ALL);
 
-    // Hotkey action notifiers — fired by BakkesMod on key1 key-down via setBind in SettingsSync.
-    // If key2 is configured, it must be held (tracked in heldKeys via HandleKeyPress hook).
-    cvarManager->registerNotifier(
-        "ss_cycle_map_mode_fwd",
-        [this](std::vector<std::string> args) {
-            if (!settingsSync || !mapManager) return;
-            auto key2 = settingsSync->GetHotkeyMapModeFwdKey2();
-            if (!key2.empty()) {
-                bool held = heldKeys.count(key2) > 0;
-                LOG("Hotkey Trigger: ss_cycle_map_mode_fwd triggered. Combo key: {}, Held: {}", key2,
-                    held ? "Yes" : "No");
-                if (!held) return;
-            } else {
-                LOG("Hotkey Trigger: ss_cycle_map_mode_fwd triggered. No combo key set.");
+    // Hotkey actions handled entirely in HandleKeyPress hook — no setBind/notifiers.
+    // Dual-key strictly required: key1 = trigger, key2 = must be held. Both must be non-empty.
+    gameWrapper->HookEventWithCaller<
+        ActorWrapper>("Function TAGame.GameViewportClient_TA.HandleKeyPress", [this](ActorWrapper caller, void* params,
+                                                                                     std::string eventName) {
+        auto p = static_cast<HandleKeyPressParams*>(params);
+        std::string keyName = gameWrapper->GetFNameByIndex(p->KeyIndex);
+        if (keyName.empty() || keyName == "None") return;
+
+        // Maintain heldKeys set (press = insert, release = erase).
+        if (p->EventType == 0) // IE_Pressed
+            heldKeys.insert(keyName);
+        else if (p->EventType == 1) // IE_Released
+            heldKeys.erase(keyName);
+
+        // Fire hotkey actions on press only. Both keys must be non-empty (dual-key enforced).
+        if (p->EventType == 0 && settingsSync && mapManager) {
+            // Returns true if key1 matches the pressed key and key2 is currently held.
+            auto check = [&](const std::string& k1, const std::string& k2) -> bool {
+                return !k1.empty() && !k2.empty() && keyName == k1 && heldKeys.count(k2) > 0;
+            };
+
+            if (check(settingsSync->GetHotkeyMapModeFwdKey1(), settingsSync->GetHotkeyMapModeFwdKey2())) {
+                LOG("Hotkey: cycle_map_mode_fwd");
+                ShowToastForAction("Switched map mode forward");
+                mapManager->CycleMapMode(true);
+                cvarManager->getCvar("suitespot_map_type").setValue(mapManager->GetCurrentMapModeIndex());
+            } else if (check(settingsSync->GetHotkeyMapModeBkKey1(), settingsSync->GetHotkeyMapModeBkKey2())) {
+                LOG("Hotkey: cycle_map_mode_bk");
+                ShowToastForAction("Switched map mode backward");
+                mapManager->CycleMapMode(false);
+                cvarManager->getCvar("suitespot_map_type").setValue(mapManager->GetCurrentMapModeIndex());
+            } else if (check(settingsSync->GetHotkeyCycleMapFwdKey1(), settingsSync->GetHotkeyCycleMapFwdKey2())) {
+                LOG("Hotkey: cycle_map_fwd");
+                ShowToastForAction("Next map");
+                mapManager->CycleMap(true);
+                int mode = mapManager->GetCurrentMapModeIndex();
+                if (mode == 0)
+                    cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
+                else if (mode == 1)
+                    cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
+                else if (mode == 2)
+                    cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
+            } else if (check(settingsSync->GetHotkeyCycleMapBkKey1(), settingsSync->GetHotkeyCycleMapBkKey2())) {
+                LOG("Hotkey: cycle_map_bk");
+                ShowToastForAction("Previous map");
+                mapManager->CycleMap(false);
+                int mode = mapManager->GetCurrentMapModeIndex();
+                if (mode == 0)
+                    cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
+                else if (mode == 1)
+                    cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
+                else if (mode == 2)
+                    cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
+            } else if (check(settingsSync->GetHotkeyLoadNowKey1(), settingsSync->GetHotkeyLoadNowKey2())) {
+                LOG("Hotkey: load_now");
+                ShowToastForAction("Loading current map");
+                int mapType = settingsSync->GetMapType();
+                std::string cmd;
+                if (mapType == 0) {
+                    auto code = settingsSync->GetCurrentFreeplayCode();
+                    if (!code.empty()) cmd = "load_freeplay " + code;
+                } else if (mapType == 1) {
+                    auto code = settingsSync->GetCurrentTrainingCode();
+                    if (!code.empty()) cmd = "load_training " + code;
+                } else if (mapType == 2) {
+                    auto path = settingsSync->GetCurrentWorkshopPath();
+                    if (!path.empty()) cmd = "load_workshop \"" + path + "\"";
+                }
+                if (!cmd.empty()) gameWrapper->Execute([this, cmd](GameWrapper*) { cvarManager->executeCommand(cmd); });
             }
-            ShowToastForAction("Switched map mode forward");
-            mapManager->CycleMapMode(true);
-            cvarManager->getCvar("suitespot_map_type").setValue(mapManager->GetCurrentMapModeIndex());
-        },
-        "SuiteSpot: Cycle map mode forward", PERMISSION_ALL);
+        }
 
-    cvarManager->registerNotifier(
-        "ss_cycle_map_mode_bk",
-        [this](std::vector<std::string> args) {
-            if (!settingsSync || !mapManager) return;
-            auto key2 = settingsSync->GetHotkeyMapModeBkKey2();
-            if (!key2.empty()) {
-                bool held = heldKeys.count(key2) > 0;
-                LOG("Hotkey Trigger: ss_cycle_map_mode_bk triggered. Combo key: {}, Held: {}", key2, held ? "Yes" : "No");
-                if (!held) return;
-            }
-            ShowToastForAction("Switched map mode backward");
-            mapManager->CycleMapMode(false);
-            cvarManager->getCvar("suitespot_map_type").setValue(mapManager->GetCurrentMapModeIndex());
-        },
-        "SuiteSpot: Cycle map mode backward", PERMISSION_ALL);
+        // Hotkey capture UI — only active when captureRow >= 0.
+        if (captureRow < 0) return;
+        if (p->EventType != 0) return; // capture on press only
 
-    cvarManager->registerNotifier(
-        "ss_cycle_map_fwd",
-        [this](std::vector<std::string> args) {
-            if (!settingsSync || !mapManager) return;
-            auto key2 = settingsSync->GetHotkeyCycleMapFwdKey2();
-            if (!key2.empty()) {
-                bool held = heldKeys.count(key2) > 0;
-                LOG("Hotkey Trigger: ss_cycle_map_fwd triggered. Combo key: {}, Held: {}", key2, held ? "Yes" : "No");
-                if (!held) return;
-            }
-            ShowToastForAction("Next map");
-            mapManager->CycleMap(true);
-            int mode = mapManager->GetCurrentMapModeIndex();
-            if (mode == 0)
-                cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
-            else if (mode == 1)
-                cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
-            else if (mode == 2)
-                cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
-        },
-        "SuiteSpot: Cycle map forward", PERMISSION_ALL);
+        LOG("Hotkey Capture: Detected key {} (Index: {}, Gamepad: {})", keyName, p->KeyIndex, p->bGamepad);
 
-    cvarManager->registerNotifier(
-        "ss_cycle_map_bk",
-        [this](std::vector<std::string> args) {
-            if (!settingsSync || !mapManager) return;
-            auto key2 = settingsSync->GetHotkeyCycleMapBkKey2();
-            if (!key2.empty()) {
-                bool held = heldKeys.count(key2) > 0;
-                LOG("Hotkey Trigger: ss_cycle_map_bk triggered. Combo key: {}, Held: {}", key2, held ? "Yes" : "No");
-                if (!held) return;
-            }
-            ShowToastForAction("Previous map");
-            mapManager->CycleMap(false);
-            int mode = mapManager->GetCurrentMapModeIndex();
-            if (mode == 0)
-                cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
-            else if (mode == 1)
-                cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
-            else if (mode == 2)
-                cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
-        },
-        "SuiteSpot: Cycle map backward", PERMISSION_ALL);
+        if (keyName == "Escape") {
+            LOG("Hotkey Capture: Cancelled via Escape");
+            captureRow = -1;
+            return;
+        }
 
-    cvarManager->registerNotifier(
-        "ss_load_now",
-        [this](std::vector<std::string> args) {
-            if (!settingsSync) return;
-            auto key2 = settingsSync->GetHotkeyLoadNowKey2();
-            if (!key2.empty()) {
-                bool held = heldKeys.count(key2) > 0;
-                LOG("Hotkey Trigger: ss_load_now triggered. Combo key: {}, Held: {}", key2, held ? "Yes" : "No");
-                if (!held) return;
-            }
-            ShowToastForAction("Loading current map");
-            int mapType = settingsSync->GetMapType();
-            std::string cmd;
-            if (mapType == 0) {
-                auto code = settingsSync->GetCurrentFreeplayCode();
-                if (!code.empty()) cmd = "load_freeplay " + code;
-            } else if (mapType == 1) {
-                auto code = settingsSync->GetCurrentTrainingCode();
-                if (!code.empty()) cmd = "load_training " + code;
-            } else if (mapType == 2) {
-                auto path = settingsSync->GetCurrentWorkshopPath();
-                if (!path.empty()) cmd = "load_workshop \"" + path + "\"";
-            }
-            if (!cmd.empty()) {
-                gameWrapper->Execute([this, cmd](GameWrapper*) { cvarManager->executeCommand(cmd); });
-            }
-        },
-        "SuiteSpot: Load current map immediately", PERMISSION_ALL);
-
-    // Raw input hook — tracks held keys for combo checks AND handles capture UI.
-    // Fires on every key press/release; never polls.
-    gameWrapper->HookEventWithCaller<ActorWrapper>("Function TAGame.GameViewportClient_TA.HandleKeyPress",
-                                                   [this](ActorWrapper caller, void* params, std::string eventName) {
-                                                       auto p = static_cast<HandleKeyPressParams*>(params);
-
-                                                       std::string keyName = gameWrapper->GetFNameByIndex(p->KeyIndex);
-                                                       if (keyName.empty() || keyName == "None") return;
-
-                                                       // Maintain heldKeys set for combo checks in notifiers.
-                                                       if (p->EventType == 0) // IE_Pressed
-                                                           heldKeys.insert(keyName);
-                                                       else if (p->EventType == 1) // IE_Released
-                                                           heldKeys.erase(keyName);
-
-                                                       // Hotkey capture UI — only active when captureRow >= 0.
-                                                       if (captureRow < 0) return;
-                                                       if (p->EventType != 0) return; // capture on press only
-
-                                                       LOG("Hotkey Capture: Detected key {} (Index: {}, Gamepad: {})",
-                                                           keyName, p->KeyIndex, p->bGamepad);
-
-                                                       // Escape cancels capture
-                                                       if (keyName == "Escape") {
-                                                           LOG("Hotkey Capture: Cancelled via Escape");
-                                                           captureRow = -1;
-                                                           return;
-                                                       }
-
-                                                       // Valid key captured - map to target CVar
-                                                       if (captureRow < 5) {
-                                                           const auto& row = UI::SettingsUI::HOTKEY_ROWS[captureRow];
-                                                           const char* cvarName = (captureSlot == 0) ? row.key1CVar
-                                                                                                     : row.key2CVar;
-
-                                                           LOG("Hotkey Capture: Assigning {} to {}", keyName, cvarName);
-
-                                                           // We use Execute to ensure we're not modifying CVars directly inside a hooked game call
-                                                           gameWrapper->Execute([this, cvarName, keyName](GameWrapper* gw) {
-                                                               UI::Helpers::SetCVarSafely(cvarName, keyName,
-                                                                                          cvarManager, gameWrapper);
-                                                           });
-
-                                                           captureRow = -1;
-                                                       }
-                                                   });
+        if (captureRow < 5) {
+            const auto& row = UI::SettingsUI::HOTKEY_ROWS[captureRow];
+            const char* cvarName = (captureSlot == 0) ? row.key1CVar : row.key2CVar;
+            LOG("Hotkey Capture: Assigning {} to {}", keyName, cvarName);
+            gameWrapper->Execute([this, cvarName, keyName](GameWrapper* gw) {
+                UI::Helpers::SetCVarSafely(cvarName, keyName, cvarManager, gameWrapper);
+            });
+            captureRow = -1;
+        }
+    });
 }
 
 // #detailed comments: GameEndedEvent

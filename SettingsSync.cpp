@@ -77,51 +77,32 @@ void SettingsSync::RegisterAllCVars(const std::shared_ptr<CVarManagerWrapper>& c
 
     cvarManager->registerCvar("ss_training_maps", "", "Stored training maps", true, false, 0, false, 0);
 
-    // Hotkey bindings: key1 triggers via setBind (event-driven); key2 is the optional held combo partner.
-    // Both are free-form UE3 key name strings (e.g. "J", "F3", "LeftAlt", "XboxTypeS_DPad_Up").
+    // Hotkey bindings: dual-key required. Key1 = trigger, Key2 = must be held.
+    // Both are UE3 key name strings (e.g. "J", "F3", "LeftAlt", "XboxTypeS_DPad_Up").
+    // All detection is handled by SuiteSpot's HandleKeyPress hook — no setBind used.
 
     cvarManager->registerCvar("suitespot_hotkey_map_mode_fwd_key", "", "Key 1 for cycle map mode forward", true)
-        .addOnValueChanged([this, cvarManager](std::string oldValue, CVarWrapper cvar) {
-            if (!oldValue.empty()) cvarManager->setBind(oldValue, "");
-            hotkeyMapModeFwdKey = cvar.getStringValue();
-            if (!hotkeyMapModeFwdKey.empty()) cvarManager->setBind(hotkeyMapModeFwdKey, "ss_cycle_map_mode_fwd");
-        });
+        .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyMapModeFwdKey = cvar.getStringValue(); });
     cvarManager->registerCvar("suitespot_hotkey_map_mode_fwd_key2", "", "Key 2 (held) for cycle map mode forward", true)
         .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyMapModeFwdKey2 = cvar.getStringValue(); });
 
     cvarManager->registerCvar("suitespot_hotkey_map_mode_bk_key", "", "Key 1 for cycle map mode backward", true)
-        .addOnValueChanged([this, cvarManager](std::string oldValue, CVarWrapper cvar) {
-            if (!oldValue.empty()) cvarManager->setBind(oldValue, "");
-            hotkeyMapModeBkKey = cvar.getStringValue();
-            if (!hotkeyMapModeBkKey.empty()) cvarManager->setBind(hotkeyMapModeBkKey, "ss_cycle_map_mode_bk");
-        });
+        .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyMapModeBkKey = cvar.getStringValue(); });
     cvarManager->registerCvar("suitespot_hotkey_map_mode_bk_key2", "", "Key 2 (held) for cycle map mode backward", true)
         .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyMapModeBkKey2 = cvar.getStringValue(); });
 
     cvarManager->registerCvar("suitespot_hotkey_cycle_map_fwd_key", "", "Key 1 for cycle map forward", true)
-        .addOnValueChanged([this, cvarManager](std::string oldValue, CVarWrapper cvar) {
-            if (!oldValue.empty()) cvarManager->setBind(oldValue, "");
-            hotkeyCycleMapFwdKey = cvar.getStringValue();
-            if (!hotkeyCycleMapFwdKey.empty()) cvarManager->setBind(hotkeyCycleMapFwdKey, "ss_cycle_map_fwd");
-        });
+        .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyCycleMapFwdKey = cvar.getStringValue(); });
     cvarManager->registerCvar("suitespot_hotkey_cycle_map_fwd_key2", "", "Key 2 (held) for cycle map forward", true)
         .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyCycleMapFwdKey2 = cvar.getStringValue(); });
 
     cvarManager->registerCvar("suitespot_hotkey_cycle_map_bk_key", "", "Key 1 for cycle map backward", true)
-        .addOnValueChanged([this, cvarManager](std::string oldValue, CVarWrapper cvar) {
-            if (!oldValue.empty()) cvarManager->setBind(oldValue, "");
-            hotkeyCycleMapBkKey = cvar.getStringValue();
-            if (!hotkeyCycleMapBkKey.empty()) cvarManager->setBind(hotkeyCycleMapBkKey, "ss_cycle_map_bk");
-        });
+        .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyCycleMapBkKey = cvar.getStringValue(); });
     cvarManager->registerCvar("suitespot_hotkey_cycle_map_bk_key2", "", "Key 2 (held) for cycle map backward", true)
         .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyCycleMapBkKey2 = cvar.getStringValue(); });
 
     cvarManager->registerCvar("suitespot_hotkey_load_now_key", "", "Key 1 for load current map immediately", true)
-        .addOnValueChanged([this, cvarManager](std::string oldValue, CVarWrapper cvar) {
-            if (!oldValue.empty()) cvarManager->setBind(oldValue, "");
-            hotkeyLoadNowKey = cvar.getStringValue();
-            if (!hotkeyLoadNowKey.empty()) cvarManager->setBind(hotkeyLoadNowKey, "ss_load_now");
-        });
+        .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyLoadNowKey = cvar.getStringValue(); });
     cvarManager->registerCvar("suitespot_hotkey_load_now_key2", "", "Key 2 (held) for load now", true)
         .addOnValueChanged([this](std::string, CVarWrapper cvar) { hotkeyLoadNowKey2 = cvar.getStringValue(); });
 
