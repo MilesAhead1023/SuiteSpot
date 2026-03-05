@@ -287,7 +287,7 @@ void SuiteSpot::LoadHooks()
                 int newMode = mapManager->GetCurrentMapModeIndex();
                 static constexpr const char* modeNames[] = {"Freeplay", "Training", "Workshop"};
                 gameWrapper->Toast("SuiteSpot", std::string("Map Mode: ") + modeNames[newMode], "default", 3.5f,
-                                   ToastType_Info);
+                                   ToastType_Info, 290.f, 85.f);
                 cvarManager->getCvar("suitespot_map_type").setValue(newMode);
             } else if (check(settingsSync->GetHotkeyMapModeBkKey1(), settingsSync->GetHotkeyMapModeBkKey2())) {
                 LOG("Hotkey: cycle_map_mode_bk");
@@ -295,7 +295,7 @@ void SuiteSpot::LoadHooks()
                 int newMode = mapManager->GetCurrentMapModeIndex();
                 static constexpr const char* modeNames[] = {"Freeplay", "Training", "Workshop"};
                 gameWrapper->Toast("SuiteSpot", std::string("Map Mode: ") + modeNames[newMode], "default", 3.5f,
-                                   ToastType_Info);
+                                   ToastType_Info, 290.f, 85.f);
                 cvarManager->getCvar("suitespot_map_type").setValue(newMode);
             } else if (check(settingsSync->GetHotkeyCycleMapFwdKey1(), settingsSync->GetHotkeyCycleMapFwdKey2())) {
                 LOG("Hotkey: cycle_map_fwd");
@@ -312,9 +312,7 @@ void SuiteSpot::LoadHooks()
                     mapName = mapManager->GetCurrentWorkshopName();
                     cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
                 }
-                gameWrapper->Toast("SuiteSpot",
-                                   "Map: " + (mapName.size() > 25 ? mapName.substr(0, 22) + "\xe2\x80\xa6" : mapName),
-                                   "default", 3.5f, ToastType_Info);
+                gameWrapper->Toast("SuiteSpot", "Map: " + mapName, "default", 3.5f, ToastType_Info, 290.f, 85.f);
             } else if (check(settingsSync->GetHotkeyCycleMapBkKey1(), settingsSync->GetHotkeyCycleMapBkKey2())) {
                 LOG("Hotkey: cycle_map_bk");
                 mapManager->CycleMap(false);
@@ -330,9 +328,7 @@ void SuiteSpot::LoadHooks()
                     mapName = mapManager->GetCurrentWorkshopName();
                     cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
                 }
-                gameWrapper->Toast("SuiteSpot",
-                                   "Map: " + (mapName.size() > 25 ? mapName.substr(0, 22) + "\xe2\x80\xa6" : mapName),
-                                   "default", 3.5f, ToastType_Info);
+                gameWrapper->Toast("SuiteSpot", "Map: " + mapName, "default", 3.5f, ToastType_Info, 290.f, 85.f);
             } else if (check(settingsSync->GetHotkeyLoadNowKey1(), settingsSync->GetHotkeyLoadNowKey2())) {
                 LOG("Hotkey: load_now");
                 int mapType = settingsSync->GetMapType();
@@ -350,7 +346,7 @@ void SuiteSpot::LoadHooks()
                 if (!cmd.empty()) {
                     gameWrapper->Execute([this, cmd](GameWrapper*) { cvarManager->executeCommand(cmd); });
                 } else {
-                    gameWrapper->Toast("SuiteSpot", "No map selected", "default", 3.5f, ToastType_Error);
+                    gameWrapper->Toast("SuiteSpot", "No map selected", "default", 3.5f, ToastType_Error, 290.f, 85.f);
                 }
             }
         }
