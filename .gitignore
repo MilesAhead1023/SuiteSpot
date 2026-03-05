@@ -4,6 +4,13 @@
 # Claude AI agent memory/state files
 .claude/
 
+# Session planning/verification artifacts (not project docs)
+docs/plans/
+docs/verification-results/
+docs/gui-editor/
+docs/development/
+docs/LOGIC_MAP.md
+
 # User-specific files
 *.rsuser
 *.suo

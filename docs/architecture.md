@@ -4,33 +4,36 @@
 *   **Type:** BakkesMod Plugin (C++ Dynamic Link Library)
 *   **Platform:** Windows x64 (Rocket League requirement)
 *   **Language:** C++20
-*   **Dependencies:**
-    *   **BakkesMod SDK:** Core game hooks and wrappers.
-    *   **ImGui:** User interface (DirectX 11 backend).
-    *   **nlohmann/json:** Configuration and data persistence.
-    *   **PowerShell:** Used for some file operations (unzipping, versioning).
+*   **Dependencies (via vcpkg):**
+    *   **BakkesMod SDK:** Core game hooks, CVars, ImGui integration.
+    *   **ImGui 1.75:** User interface (DirectX 11 backend). Custom widgets in `IMGUI/`.
+    *   **nlohmann-json:** JSON parsing for pack database and usage stats.
+    *   **sqlite3, spdlog, fmt:** Storage, structured logging, string formatting.
+    *   **openssl, ixwebsocket:** HTTPS for workshop API, WebSocket support.
 
 ## Architecture
 
-The project follows a "Hub and Spoke" architecture where `SuiteSpot.cpp` manages the plugin lifecycle and delegates functionality to specialized managers.
+The project follows a **Hub-and-Spoke** pattern where `SuiteSpot.cpp` manages the plugin lifecycle and all inter-component communication. Components do not communicate directly.
 
 ```mermaid
 graph TD
-    Plugin[SuiteSpot Entry] --> AutoLoad[AutoLoadFeature]
-Plugin --> UI[UI Layer]
-Plugin --> Maps[MapManager]
-Plugin --> Packs[TrainingPackManager]
-Plugin --> Settings[SettingsSync]
-Plugin --> Loadout[LoadoutManager]
-    
+    Plugin[SuiteSpot Hub] --> AutoLoad[AutoLoadFeature]
+    Plugin --> UI[UI Layer]
+    Plugin --> Maps[MapManager]
+    Plugin --> Packs[TrainingPackManager]
+    Plugin --> Workshop[WorkshopDownloader]
+    Plugin --> Settings[SettingsSync]
+    Plugin --> Loadout[LoadoutManager]
+    Plugin --> Usage[PackUsageTracker]
+
     UI --> SettingsUI[F2 Settings Menu]
-UI --> TrainingPackUI[Floating Browser Window]
-UI --> StatusMessageUI[Toast Notifications]
-    
-Packs --> Network[WorkshopDownloader]
-Packs --> Usage[PackUsageTracker]
-AutoLoad -- Reads --> Settings
-AutoLoad -- Executes --> Maps
+    UI --> TrainingPackUI[Floating Browser Window]
+    UI --> LoadoutUI[Car Preset Selector]
+    UI --> StatusMessageUI[Toast Notifications]
+
+    AutoLoad -- Reads --> Settings
+    AutoLoad -- Executes --> Maps
+    SettingsUI --> Workshop
 ```
 
 ## Technical Implementation Details
@@ -62,11 +65,12 @@ This is the core automation engine.
 *   **Usage Tracking:** `PackUsageTracker.cpp` serializes user history (`loadCount`, `lastLoadedTimestamp`) to `training_usage.json`, enabling "Favorites" sorting.
 
 ### 4. Workshop Integration (`WorkshopDownloader` & `MapManager`)
-*   **Discovery:** Scans configured directories recursively for `.udk` or `.upk` files.
-*   **Downloading:**
-    *   **API:** Queries `https://celab.jetfox.ovh/api/v4/projects/` for map data and releases.
-    *   **Extraction:** Uses `system("powershell.exe Expand-Archive ...")` to unzip downloaded maps. This is a point of fragility if PowerShell execution policies are restrictive.
-    *   **Safety:** Downloads images directly to local storage to avoid game-thread blocking.
+*   **Discovery (`MapManager`):** Scans configured directories recursively for `.udk` or `.upk` files.
+*   **Downloading (`WorkshopDownloader`):**
+    *   **API:** `https://bakkesplugins.com/api/rocket-league-maps` — returns all 287 maps in a single `GET ?search=&pageSize=500&page=1` call. Cached locally; search is client-side.
+    *   **Detail fetch:** `GET /{id}` retrieves `files[0].edgeUrl` (CDN download link) and `bannerUrl` (preview image).
+    *   **Thread safety:** Uses mutex + atomic `completedResults`/`expectedResults` to safely drain in-flight HTTP callbacks before DLL unload.
+    *   **Extraction:** Uses `system("powershell.exe Expand-Archive ...")` to unzip downloaded maps.
 
 ### 5. Settings & Synchronization (`SettingsSync`)
 *   **CVar Backing:** All settings are backed by BakkesMod's `CVarManager`.
@@ -74,10 +78,17 @@ This is the core automation engine.
 *   **Naming:** All CVars are prefixed with `suitespot_` (e.g., `suitespot_enabled`, `suitespot_delay_queue`).
 
 ### 6. User Interface (`UI Layer`)
-*   **Framework:** ImGui (Immediate Mode GUI).
+*   **Framework:** ImGui 1.75 (Immediate Mode GUI). Custom widgets in `IMGUI/`.
 *   **Training Pack Browser:**
-    *   **Virtual Scrolling:** Uses `ImGuiListClipper` (implied pattern for large lists) to render only visible items from the 2000+ pack database.
-    *   **Sorting:** Clickable column headers (`SortableColumnHeader`) toggle between Ascending/Descending.
+    *   **Virtual Scrolling:** Uses `ImGuiListClipper` to render only visible items from the 2300+ pack database.
+    *   **Sorting:** Clickable column headers toggle between Ascending/Descending.
     *   **Drag & Drop:** Supports dragging packs from the browser to "Quick Pick" slots.
+*   **Workshop Browser:**
+    *   Browse-on-launch: auto-populates all maps when the tab opens (no search required).
+    *   Single local search bar — all filtering is client-side after initial API load.
+    *   Selection persists across list rebuilds via `selectedMapID` (string ID, not fragile index).
 
-```
+### 7. Critical Threading Rules
+*   **Game thread:** Use `gameWrapper->Execute()` to defer any shared-state modification between frames. Use `gameWrapper->SetTimeout()` for delayed post-match execution (minimum 0.1s).
+*   **Font loading:** Never call `GUIManager::LoadFont()` inside a render function or directly in `SetImGuiContext()` — atlas rebuild crashes the game. Always wrap in `Execute()` and guard with `GetFont()` first.
+*   **Download threads:** `WorkshopDownloader` spins in the destructor until all async HTTP callbacks complete before returning — prevents use-after-free on DLL unload.
