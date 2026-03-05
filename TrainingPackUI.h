@@ -92,6 +92,7 @@ class TrainingPackUI : public BakkesMod::Plugin::PluginWindow
 
     // Returns YouTube video ID from various URL formats, or "" if not a YouTube URL
     static std::string ExtractYouTubeId(const std::string& url);
+    static std::string ExtractImgurId(const std::string& url);
 
     // Triggers async thumbnail download for the selected pack (idempotent)
     void FetchThumbnailForSelected();

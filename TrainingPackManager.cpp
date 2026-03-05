@@ -81,6 +81,9 @@ void TrainingPackManager::LoadPacksFromFile(const std::filesystem::path& filePat
             if (pack.contains("videoUrl") && pack["videoUrl"].is_string()) {
                 entry.videoUrl = pack["videoUrl"].get<std::string>();
             }
+            if (pack.contains("gifUrl") && pack["gifUrl"].is_string()) {
+                entry.gifUrl = pack["gifUrl"].get<std::string>();
+            }
             if (pack.contains("likes") && pack["likes"].is_number()) {
                 entry.likes = pack["likes"].get<int>();
             }
@@ -105,9 +108,9 @@ void TrainingPackManager::LoadPacksFromFile(const std::filesystem::path& filePat
             } else {
                 entry.source = "prejump"; // Default for backward compatibility
             }
-            
+
             // Bag categories removed - skip loading bagCategories and orderInBag
-            
+
             if (pack.contains("isModified") && pack["isModified"].is_boolean()) {
                 entry.isModified = pack["isModified"].get<bool>();
             }
@@ -167,8 +170,7 @@ std::string TrainingPackManager::GetLastUpdatedTime(const std::filesystem::path&
     try {
         auto lastWriteTime = std::filesystem::last_write_time(filePath);
         auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-            lastWriteTime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now()
-        );
+            lastWriteTime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
         auto tt = std::chrono::system_clock::to_time_t(sctp);
 
         std::ostringstream oss;
@@ -180,7 +182,7 @@ std::string TrainingPackManager::GetLastUpdatedTime(const std::filesystem::path&
 }
 
 void TrainingPackManager::UpdateTrainingPackList(const std::filesystem::path& outputPath,
-                                                   const std::shared_ptr<GameWrapper>& gameWrapper)
+                                                 const std::shared_ptr<GameWrapper>& gameWrapper)
 {
     if (scrapingInProgress) {
         LOG("SuiteSpot: Training pack update already in progress");
@@ -216,8 +218,7 @@ void TrainingPackManager::UpdateTrainingPackList(const std::filesystem::path& ou
                     scrapingInProgress = false;
                     return;
                 }
-                tempFile.write(EMBEDDED_PACK_GRABBER_SCRIPT,
-                              std::string_view(EMBEDDED_PACK_GRABBER_SCRIPT).length());
+                tempFile.write(EMBEDDED_PACK_GRABBER_SCRIPT, std::string_view(EMBEDDED_PACK_GRABBER_SCRIPT).length());
                 tempFile.close();
             }
 
@@ -266,25 +267,20 @@ void TrainingPackManager::UpdateTrainingPackList(const std::filesystem::path& ou
     });
 }
 
-void TrainingPackManager::FilterAndSortPacks(const std::string& searchText,
-                                            const std::string& difficultyFilter,
-                                            const std::string& tagFilter,
-                                            int minShots,
-                                            bool videoFilter,
-                                            int sortColumn,
-                                            bool sortAscending,
-                                            std::vector<TrainingEntry>& out) const
+void TrainingPackManager::FilterAndSortPacks(const std::string& searchText, const std::string& difficultyFilter,
+                                             const std::string& tagFilter, int minShots, bool videoFilter,
+                                             int sortColumn, bool sortAscending, std::vector<TrainingEntry>& out) const
 {
     std::lock_guard<std::mutex> lock(packMutex);
     out.clear();
 
     std::string searchLower(searchText);
     std::transform(searchLower.begin(), searchLower.end(), searchLower.begin(),
-        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
     for (const auto& pack : RLTraining) {
-        // Video filter - skip packs without video if filter is enabled
-        if (videoFilter && pack.videoUrl.empty()) {
+        // Video filter — skip packs without video or gif preview
+        if (videoFilter && pack.videoUrl.empty() && pack.gifUrl.empty()) {
             continue;
         }
 
@@ -295,7 +291,7 @@ void TrainingPackManager::FilterAndSortPacks(const std::string& searchText,
             // 1. Search by name (case-insensitive, partial match)
             std::string nameLower = pack.name;
             std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(),
-                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
             if (nameLower.find(searchLower) != std::string::npos) {
                 matchesSearch = true;
             }
@@ -306,12 +302,13 @@ void TrainingPackManager::FilterAndSortPacks(const std::string& searchText,
                 std::string codeLower = pack.code;
                 std::string searchNoDashes = searchLower;
                 std::transform(codeLower.begin(), codeLower.end(), codeLower.begin(),
-                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                
+                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
                 // Strip dashes from both strings
                 codeLower.erase(std::remove(codeLower.begin(), codeLower.end(), '-'), codeLower.end());
-                searchNoDashes.erase(std::remove(searchNoDashes.begin(), searchNoDashes.end(), '-'), searchNoDashes.end());
-                
+                searchNoDashes.erase(std::remove(searchNoDashes.begin(), searchNoDashes.end(), '-'),
+                                     searchNoDashes.end());
+
                 // Match if search term is contained in code (allows partial code search)
                 if (codeLower.find(searchNoDashes) != std::string::npos) {
                     matchesSearch = true;
@@ -326,7 +323,8 @@ void TrainingPackManager::FilterAndSortPacks(const std::string& searchText,
         if (difficultyFilter != "All") {
             if (difficultyFilter == "Unranked") {
                 // Match "Unranked" filter against all "no difficulty" values
-                if (!pack.difficulty.empty() && pack.difficulty != "Unknown" && pack.difficulty != "All" && pack.difficulty != "Unranked") {
+                if (!pack.difficulty.empty() && pack.difficulty != "Unknown" && pack.difficulty != "All" &&
+                    pack.difficulty != "Unranked") {
                     continue;
                 }
             } else {
@@ -367,8 +365,9 @@ void TrainingPackManager::FilterAndSortPacks(const std::string& searchText,
     // Difficulty ranking helper (lower rank = easier)
     auto getDifficultyRank = [](const std::string& difficulty) -> int {
         std::string diffLower = difficulty;
-        std::transform(diffLower.begin(), diffLower.end(), diffLower.begin(), [](unsigned char c) { return std::tolower(c); });
-        
+        std::transform(diffLower.begin(), diffLower.end(), diffLower.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+
         if (diffLower.empty() || diffLower == "unknown" || diffLower == "all" || diffLower == "unranked") return 0;
         if (diffLower == "bronze") return 1;
         if (diffLower == "silver") return 2;
@@ -381,34 +380,35 @@ void TrainingPackManager::FilterAndSortPacks(const std::string& searchText,
         return 0; // Unknown difficulties default to unranked
     };
 
-    std::sort(out.begin(), out.end(), [sortColumn, sortAscending, &caseInsensitiveCompare, &getDifficultyRank](const TrainingEntry& a, const TrainingEntry& b) {
-        int cmp = 0;
-        switch (sortColumn) {
-            case 0: // Name
-                cmp = caseInsensitiveCompare(a.name, b.name);
-                break;
-            case 1: // Creator
-                cmp = caseInsensitiveCompare(a.creator, b.creator);
-                break;
-            case 2: // Difficulty
-                {
-                    int rankA = getDifficultyRank(a.difficulty);
-                    int rankB = getDifficultyRank(b.difficulty);
-                    cmp = (rankA < rankB) ? -1 : (rankA > rankB) ? 1 : 0;
-                }
-                break;
-            case 3: // Shots
-                cmp = (a.shotCount < b.shotCount) ? -1 : (a.shotCount > b.shotCount) ? 1 : 0;
-                break;
-            case 4: // Likes
-                cmp = (a.likes < b.likes) ? -1 : (a.likes > b.likes) ? 1 : 0;
-                break;
-            case 5: // Plays
-                cmp = (a.plays < b.plays) ? -1 : (a.plays > b.plays) ? 1 : 0;
-                break;
-        }
-        return sortAscending ? (cmp < 0) : (cmp > 0);
-    });
+    std::sort(out.begin(), out.end(),
+              [sortColumn, sortAscending, &caseInsensitiveCompare, &getDifficultyRank](const TrainingEntry& a,
+                                                                                       const TrainingEntry& b) {
+                  int cmp = 0;
+                  switch (sortColumn) {
+                      case 0: // Name
+                          cmp = caseInsensitiveCompare(a.name, b.name);
+                          break;
+                      case 1: // Creator
+                          cmp = caseInsensitiveCompare(a.creator, b.creator);
+                          break;
+                      case 2: // Difficulty
+                      {
+                          int rankA = getDifficultyRank(a.difficulty);
+                          int rankB = getDifficultyRank(b.difficulty);
+                          cmp = (rankA < rankB) ? -1 : (rankA > rankB) ? 1 : 0;
+                      } break;
+                      case 3: // Shots
+                          cmp = (a.shotCount < b.shotCount) ? -1 : (a.shotCount > b.shotCount) ? 1 : 0;
+                          break;
+                      case 4: // Likes
+                          cmp = (a.likes < b.likes) ? -1 : (a.likes > b.likes) ? 1 : 0;
+                          break;
+                      case 5: // Plays
+                          cmp = (a.plays < b.plays) ? -1 : (a.plays > b.plays) ? 1 : 0;
+                          break;
+                  }
+                  return sortAscending ? (cmp < 0) : (cmp > 0);
+              });
 }
 
 void TrainingPackManager::BuildAvailableTags(std::vector<std::string>& out) const
@@ -456,6 +456,7 @@ void TrainingPackManager::SavePacksToFile(const std::filesystem::path& filePath)
             p["shotCount"] = pack.shotCount;
             p["tags"] = pack.tags;
             p["videoUrl"] = pack.videoUrl;
+            p["gifUrl"] = pack.gifUrl;
             p["staffComments"] = pack.staffComments;
             p["notes"] = pack.notes;
             p["likes"] = pack.likes;
@@ -552,8 +553,10 @@ bool TrainingPackManager::UpdatePack(const std::string& code, const TrainingEntr
                 std::sort(RLTraining.begin(), RLTraining.end(), [](const TrainingEntry& a, const TrainingEntry& b) {
                     std::string nameA = a.name;
                     std::string nameB = b.name;
-                    std::transform(nameA.begin(), nameA.end(), nameA.begin(), [](unsigned char c) { return std::tolower(c); });
-                    std::transform(nameB.begin(), nameB.end(), nameB.begin(), [](unsigned char c) { return std::tolower(c); });
+                    std::transform(nameA.begin(), nameA.end(), nameA.begin(),
+                                   [](unsigned char c) { return std::tolower(c); });
+                    std::transform(nameB.begin(), nameB.end(), nameB.begin(),
+                                   [](unsigned char c) { return std::tolower(c); });
                     return nameA < nameB;
                 });
 
@@ -577,7 +580,7 @@ bool TrainingPackManager::DeletePack(const std::string& code)
     {
         std::lock_guard<std::mutex> lock(packMutex);
         auto it = std::find_if(RLTraining.begin(), RLTraining.end(),
-            [&code](const TrainingEntry& p) { return p.code == code; });
+                               [&code](const TrainingEntry& p) { return p.code == code; });
 
         if (it != RLTraining.end()) {
             name = it->name;

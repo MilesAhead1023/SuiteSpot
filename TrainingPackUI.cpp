@@ -102,14 +102,29 @@ void DrawTagBadge(const char* tag)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ExtractImgurId — returns imgur image ID from https://i.imgur.com/{id}.mp4
+// ─────────────────────────────────────────────────────────────────────────────
+/*static*/ std::string TrainingPackUI::ExtractImgurId(const std::string& url)
+{
+    if (url.empty()) return {};
+    auto pos = url.rfind('/');
+    if (pos == std::string::npos) return {};
+    std::string filename = url.substr(pos + 1);
+    // Strip extension
+    auto dot = filename.rfind('.');
+    if (dot != std::string::npos) filename = filename.substr(0, dot);
+    return filename;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FetchThumbnailForSelected
+// Prefers gifUrl (imgur preview) over videoUrl (YouTube thumbnail)
 // ─────────────────────────────────────────────────────────────────────────────
 void TrainingPackUI::FetchThumbnailForSelected()
 {
     if (selectedPackCode.empty() || selectedPackCode == lastFetchedThumbnailCode_) return;
     lastFetchedThumbnailCode_ = selectedPackCode;
 
-    // Find the entry in filteredPacks
     TrainingEntry* entry = nullptr;
     for (auto& p : filteredPacks) {
         if (p.code == selectedPackCode) {
@@ -117,26 +132,45 @@ void TrainingPackUI::FetchThumbnailForSelected()
             break;
         }
     }
-    if (!entry || entry->videoUrl.empty()) return;
+    if (!entry) return;
+    if (entry->gifUrl.empty() && entry->videoUrl.empty()) return;
     if (entry->isThumbnailRequested) return;
-
-    std::string videoId = ExtractYouTubeId(entry->videoUrl);
-    if (videoId.empty()) return;
 
     entry->isThumbnailRequested = true;
 
-    // Check disk cache first
-    std::filesystem::path cachedPath = thumbnailCacheDir_ / (videoId + ".jpg");
+    // Prefer imgur gif preview; fall back to YouTube thumbnail
+    std::string thumbUrl;
+    std::string cacheKey;
+    std::string clickUrl;
+
+    if (!entry->gifUrl.empty()) {
+        std::string imgurId = ExtractImgurId(entry->gifUrl);
+        if (!imgurId.empty()) {
+            // imgur large thumbnail: {id}l.jpg
+            thumbUrl = "https://i.imgur.com/" + imgurId + "l.jpg";
+            cacheKey = "imgur_" + imgurId;
+            clickUrl = entry->gifUrl; // open the mp4 directly
+        }
+    }
+
+    if (thumbUrl.empty() && !entry->videoUrl.empty()) {
+        std::string videoId = ExtractYouTubeId(entry->videoUrl);
+        if (!videoId.empty()) {
+            thumbUrl = "https://img.youtube.com/vi/" + videoId + "/mqdefault.jpg";
+            cacheKey = "yt_" + videoId;
+            clickUrl = entry->videoUrl;
+        }
+    }
+
+    if (thumbUrl.empty()) return;
+
+    std::filesystem::path cachedPath = thumbnailCacheDir_ / (cacheKey + ".jpg");
     if (std::filesystem::exists(cachedPath)) {
         entry->thumbnailImage = std::make_shared<ImageWrapper>(cachedPath.string(), false, true);
         return;
     }
 
-    // Download thumbnail
-    std::string thumbUrl = "https://img.youtube.com/vi/" + videoId + "/mqdefault.jpg";
     std::filesystem::create_directories(thumbnailCacheDir_);
-
-    // Capture by value — entry ptr may be invalidated on next filter rebuild
     std::string cachePath = cachedPath.string();
     std::string code = selectedPackCode;
     TrainingPackUI* self = this;
@@ -145,14 +179,10 @@ void TrainingPackUI::FetchThumbnailForSelected()
     req.url = thumbUrl;
     HttpWrapper::SendCurlRequest(req, [self, cachePath, code](int httpCode, char* data, size_t size) {
         if (httpCode != 200 || size == 0) return;
-
-        // Write to disk
         std::ofstream f(cachePath, std::ios::binary);
         if (!f) return;
         f.write(data, static_cast<std::streamsize>(size));
         f.close();
-
-        // Load via ImageWrapper — find entry again (filteredPacks may have changed)
         for (auto& p : self->filteredPacks) {
             if (p.code == code) {
                 p.thumbnailImage = std::make_shared<ImageWrapper>(cachePath, false, true);
@@ -470,7 +500,7 @@ void TrainingPackUI::Render()
 
                     ImGui::PushID(pack.code.c_str());
 
-                    // Video indicator: YouTube icon if loaded, else small red dot
+                    // Video indicator: YouTube icon for video, small orange dot for gif-only
                     if (!pack.videoUrl.empty()) {
                         float iconSize = ImGui::GetTextLineHeight();
                         if (youtubeIcon_ && youtubeIcon_->IsLoadedForImGui()) {
@@ -483,6 +513,16 @@ void TrainingPackUI::Render()
                             ImGui::GetWindowDrawList()->AddCircleFilled(dotPos, r, IM_COL32(220, 50, 50, 220));
                             ImGui::Dummy(ImVec2(iconSize, iconSize));
                         }
+                        ImGui::SameLine(0, 3.0f);
+                    } else if (!pack.gifUrl.empty()) {
+                        // gif-only pack: small orange dot
+                        float iconSize = ImGui::GetTextLineHeight();
+                        ImVec2 dotPos = ImGui::GetCursorScreenPos();
+                        float r = iconSize * 0.22f;
+                        dotPos.x += r + 1.0f;
+                        dotPos.y += iconSize * 0.5f;
+                        ImGui::GetWindowDrawList()->AddCircleFilled(dotPos, r, IM_COL32(255, 160, 30, 220));
+                        ImGui::Dummy(ImVec2(iconSize, iconSize));
                         ImGui::SameLine(0, 3.0f);
                     }
 
@@ -601,20 +641,28 @@ void TrainingPackUI::RenderDetailPanel(const TrainingEntry* pack)
     float thumbW = std::min(UI::PackBrowserUI::THUMBNAIL_WIDTH, panelW);
     float thumbH = thumbW * (UI::PackBrowserUI::THUMBNAIL_HEIGHT / UI::PackBrowserUI::THUMBNAIL_WIDTH);
 
+    // Determine what to open when the thumbnail is clicked
+    // Priority: gifUrl (imgur preview clip) → videoUrl (YouTube tutorial)
+    const bool hasGif = !pack->gifUrl.empty();
+    const bool hasVideo = !pack->videoUrl.empty();
+    const bool hasPreview = hasGif || hasVideo;
+    const std::string& previewClickUrl = hasGif ? pack->gifUrl : pack->videoUrl;
+    const char* previewTooltip = hasGif ? "Open preview clip in browser" : "Open video in browser";
+
     if (pack->thumbnailImage && pack->thumbnailImage->GetImGuiTex()) {
         float offsetX = (panelW - thumbW) * 0.5f;
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
         ImGui::Image(pack->thumbnailImage->GetImGuiTex(), ImVec2(thumbW, thumbH));
-        if (!pack->videoUrl.empty()) {
+        if (hasPreview) {
             ImGui::SetItemAllowOverlap();
             ImVec2 btnMin = ImGui::GetItemRectMin();
             ImGui::SetCursorScreenPos(btnMin);
             if (ImGui::InvisibleButton("##thumb_click", ImVec2(thumbW, thumbH))) {
-                ShellExecuteA(NULL, "open", pack->videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                ShellExecuteA(NULL, "open", previewClickUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
             }
             if (ImGui::IsItemHovered()) {
                 ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                ImGui::SetTooltip("Open video in browser");
+                ImGui::SetTooltip("%s", previewTooltip);
             }
         }
     } else {
@@ -625,7 +673,7 @@ void TrainingPackUI::RenderDetailPanel(const TrainingEntry* pack)
         ImDrawList* dl = ImGui::GetWindowDrawList();
         dl->AddRectFilled(p, ImVec2(p.x + thumbW, p.y + thumbH), ImColor(35, 38, 48, 255), 4.0f);
         dl->AddRect(p, ImVec2(p.x + thumbW, p.y + thumbH), ImColor(60, 70, 90, 255), 4.0f);
-        if (!pack->videoUrl.empty()) {
+        if (hasPreview) {
             const char* msg = pack->isThumbnailRequested ? "Loading..." : "No Preview";
             float tw = ImGui::CalcTextSize(msg).x;
             dl->AddText(ImVec2(p.x + (thumbW - tw) * 0.5f, p.y + thumbH * 0.5f - 7.0f), ImColor(100, 110, 130, 255), msg);
@@ -635,13 +683,13 @@ void TrainingPackUI::RenderDetailPanel(const TrainingEntry* pack)
             dl->AddText(ImVec2(p.x + (thumbW - tw) * 0.5f, p.y + thumbH * 0.5f - 7.0f), ImColor(80, 85, 100, 255), msg);
         }
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
-        if (!pack->videoUrl.empty()) {
+        if (hasPreview) {
             if (ImGui::InvisibleButton("##thumb_click_ph", ImVec2(thumbW, thumbH))) {
-                ShellExecuteA(NULL, "open", pack->videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                ShellExecuteA(NULL, "open", previewClickUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
             }
             if (ImGui::IsItemHovered()) {
                 ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                ImGui::SetTooltip("Open video in browser");
+                ImGui::SetTooltip("%s", previewTooltip);
             }
         } else {
             ImGui::Dummy(ImVec2(thumbW, thumbH));

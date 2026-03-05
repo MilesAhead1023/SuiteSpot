@@ -131,6 +131,7 @@ function Normalize-TrainingPack {
             shotCount = $existingPack.shotCount
             tags = @($existingPack.tags)
             videoUrl = $existingPack.videoUrl
+            gifUrl = if ($existingPack.gifUrl) { $existingPack.gifUrl } else { $Pack.gifUrl }
             staffComments = $existingPack.staffComments
             notes = $existingPack.notes
             likes = $Pack.likes  # Update dynamic stats
@@ -157,6 +158,7 @@ function Normalize-TrainingPack {
         shotCount = $Pack.shotCount
         tags = @($Pack.tags)
         videoUrl = $Pack.videoUrl
+        gifUrl = $Pack.gifUrl
         staffComments = $Pack.staffComments
         notes = $Pack.notes
         likes = $Pack.likes
@@ -201,6 +203,7 @@ function Load-ExistingPacks {
                         shotCount = $pack.shotCount
                         tags = @($pack.tags)
                         videoUrl = if ($pack.videoUrl) { $pack.videoUrl } else { "" }
+                        gifUrl = if ($pack.gifUrl) { $pack.gifUrl } else { "" }
                         staffComments = if ($pack.staffComments) { $pack.staffComments } else { "" }
                         notes = if ($pack.notes) { $pack.notes } else { "" }
                         likes = if ($pack.likes) { $pack.likes } else { 0 }
@@ -221,6 +224,7 @@ function Load-ExistingPacks {
                         shotCount = $pack.shotCount
                         tags = @($pack.tags)
                         videoUrl = if ($pack.videoUrl) { $pack.videoUrl } else { "" }
+                        gifUrl = if ($pack.gifUrl) { $pack.gifUrl } else { "" }
                         staffComments = if ($pack.staffComments) { $pack.staffComments } else { "" }
                         notes = if ($pack.notes) { $pack.notes } else { "" }
                         likes = if ($pack.likes) { $pack.likes } else { 0 }
@@ -245,7 +249,8 @@ function Load-ExistingPacks {
         CustomPacks = $customPacks
     }
 }
-
+)PS1"
+                                                     R"PS1(
 # =====================================================================
 # Main Scraping Logic
 # =====================================================================

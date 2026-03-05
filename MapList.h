@@ -28,7 +28,8 @@ struct TrainingEntry
     int shotCount = 0;             // Number of shots
     std::string staffComments;     // Staff description
     std::string notes;             // Creator's notes
-    std::string videoUrl;          // Optional YouTube link
+    std::string videoUrl;          // Optional YouTube tutorial link
+    std::string gifUrl;            // Optional imgur preview clip (mp4)
     int likes = 0;                 // Engagement metric
     int plays = 0;                 // Engagement metric
     int status = 1;                // Pack status (1 = active)
