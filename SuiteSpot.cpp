@@ -312,7 +312,9 @@ void SuiteSpot::LoadHooks()
                     mapName = mapManager->GetCurrentWorkshopName();
                     cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
                 }
-                gameWrapper->Toast("SuiteSpot", "Map: " + mapName, "default", 3.5f, ToastType_Info);
+                gameWrapper->Toast("SuiteSpot",
+                                   "Map: " + (mapName.size() > 25 ? mapName.substr(0, 22) + "\xe2\x80\xa6" : mapName),
+                                   "default", 3.5f, ToastType_Info);
             } else if (check(settingsSync->GetHotkeyCycleMapBkKey1(), settingsSync->GetHotkeyCycleMapBkKey2())) {
                 LOG("Hotkey: cycle_map_bk");
                 mapManager->CycleMap(false);
@@ -328,7 +330,9 @@ void SuiteSpot::LoadHooks()
                     mapName = mapManager->GetCurrentWorkshopName();
                     cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
                 }
-                gameWrapper->Toast("SuiteSpot", "Map: " + mapName, "default", 3.5f, ToastType_Info);
+                gameWrapper->Toast("SuiteSpot",
+                                   "Map: " + (mapName.size() > 25 ? mapName.substr(0, 22) + "\xe2\x80\xa6" : mapName),
+                                   "default", 3.5f, ToastType_Info);
             } else if (check(settingsSync->GetHotkeyLoadNowKey1(), settingsSync->GetHotkeyLoadNowKey2())) {
                 LOG("Hotkey: load_now");
                 int mapType = settingsSync->GetMapType();
