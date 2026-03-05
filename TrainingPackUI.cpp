@@ -467,10 +467,14 @@ void TrainingPackUI::Render()
 
                     ImGui::PushID(pack.code.c_str());
 
-                    // Video indicator dot
+                    // Video indicator dot (small red circle, no icon font needed)
                     if (!pack.videoUrl.empty()) {
-                        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), ICON_FA_PLAY);
-                        ImGui::SameLine(0, 3.0f);
+                        ImVec2 dotPos = ImGui::GetCursorScreenPos();
+                        float r = ImGui::GetTextLineHeight() * 0.22f;
+                        dotPos.x += r + 1.0f;
+                        dotPos.y += ImGui::GetTextLineHeight() * 0.5f;
+                        ImGui::GetWindowDrawList()->AddCircleFilled(dotPos, r, IM_COL32(220, 50, 50, 220));
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + r * 2.0f + 5.0f);
                     }
 
                     if (ImGui::Selectable(pack.name.c_str(), isSelected,
@@ -592,6 +596,18 @@ void TrainingPackUI::RenderDetailPanel(const TrainingEntry* pack)
         float offsetX = (panelW - thumbW) * 0.5f;
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
         ImGui::Image(pack->thumbnailImage->GetImGuiTex(), ImVec2(thumbW, thumbH));
+        if (!pack->videoUrl.empty()) {
+            ImGui::SetItemAllowOverlap();
+            ImVec2 btnMin = ImGui::GetItemRectMin();
+            ImGui::SetCursorScreenPos(btnMin);
+            if (ImGui::InvisibleButton("##thumb_click", ImVec2(thumbW, thumbH))) {
+                ShellExecuteA(NULL, "open", pack->videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                ImGui::SetTooltip("Open video in browser");
+            }
+        }
     } else {
         // Placeholder rect with centered text
         ImVec2 p = ImGui::GetCursorScreenPos();
@@ -610,7 +626,17 @@ void TrainingPackUI::RenderDetailPanel(const TrainingEntry* pack)
             dl->AddText(ImVec2(p.x + (thumbW - tw) * 0.5f, p.y + thumbH * 0.5f - 7.0f), ImColor(80, 85, 100, 255), msg);
         }
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
-        ImGui::Dummy(ImVec2(thumbW, thumbH));
+        if (!pack->videoUrl.empty()) {
+            if (ImGui::InvisibleButton("##thumb_click_ph", ImVec2(thumbW, thumbH))) {
+                ShellExecuteA(NULL, "open", pack->videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                ImGui::SetTooltip("Open video in browser");
+            }
+        } else {
+            ImGui::Dummy(ImVec2(thumbW, thumbH));
+        }
     }
 
     ImGui::Spacing();
@@ -697,25 +723,10 @@ void TrainingPackUI::RenderDetailPanel(const TrainingEntry* pack)
         ImGui::SameLine();
     }
 
-    if (ImGui::Button("Load Now", ImVec2(isCurrentPostMatch ? halfW : halfW, btnH))) {
+    if (ImGui::Button("Load Now", ImVec2(-1.0f, btnH))) {
         LoadPackImmediately(pack->code);
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Load this pack immediately");
-
-    if (!pack->videoUrl.empty()) {
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Button, UI::PackBrowserUI::WATCH_BUTTON_COLOR);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::PackBrowserUI::WATCH_BUTTON_HOVER);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, UI::PackBrowserUI::WATCH_BUTTON_COLOR);
-        // Width = remaining space
-        float watchW = panelW - ImGui::GetCursorPosX() + ImGui::GetStyle().WindowPadding.x - 2.0f;
-        watchW = std::max(watchW, 60.0f);
-        if (ImGui::Button(ICON_FA_PLAY " Watch", ImVec2(watchW, btnH))) {
-            ShellExecuteA(NULL, "open", pack->videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
-        }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Open video in browser");
-        ImGui::PopStyleColor(3);
-    }
 
     // Delete button (custom packs only)
     if (pack->source == "custom") {
