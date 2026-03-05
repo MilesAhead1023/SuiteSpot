@@ -448,3 +448,24 @@ std::string MapManager::GetCurrentWorkshopPath() const
         return RLWorkshop[currentWorkshopIndex].filePath;
     return "";
 }
+
+std::string MapManager::GetCurrentFreeplayName() const
+{
+    if (!RLMaps.empty() && currentFreeplayIndex >= 0 && currentFreeplayIndex < (int)RLMaps.size())
+        return RLMaps[currentFreeplayIndex].name;
+    return "";
+}
+
+std::string MapManager::GetCurrentTrainingName() const
+{
+    if (!RLTraining.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)RLTraining.size())
+        return RLTraining[currentTrainingIndex].name;
+    return "";
+}
+
+std::string MapManager::GetCurrentWorkshopName() const
+{
+    if (!RLWorkshop.empty() && currentWorkshopIndex >= 0 && currentWorkshopIndex < (int)RLWorkshop.size())
+        return RLWorkshop[currentWorkshopIndex].name;
+    return "";
+}

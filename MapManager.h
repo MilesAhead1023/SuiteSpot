@@ -73,6 +73,9 @@ class MapManager
     std::string GetCurrentFreeplayCode() const;
     std::string GetCurrentTrainingCode() const;
     std::string GetCurrentWorkshopPath() const;
+    std::string GetCurrentFreeplayName() const;
+    std::string GetCurrentTrainingName() const;
+    std::string GetCurrentWorkshopName() const;
 
   private:
     std::filesystem::path dataRoot;

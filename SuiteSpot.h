@@ -162,7 +162,6 @@ class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
     std::set<std::string> heldKeys;
 
     // Hotkey handlers
-    void ShowToastForAction(const std::string& actionName);
 };
 
 struct HandleKeyPressParams

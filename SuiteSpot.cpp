@@ -283,39 +283,54 @@ void SuiteSpot::LoadHooks()
 
             if (check(settingsSync->GetHotkeyMapModeFwdKey1(), settingsSync->GetHotkeyMapModeFwdKey2())) {
                 LOG("Hotkey: cycle_map_mode_fwd");
-                ShowToastForAction("Switched map mode forward");
                 mapManager->CycleMapMode(true);
-                cvarManager->getCvar("suitespot_map_type").setValue(mapManager->GetCurrentMapModeIndex());
+                int newMode = mapManager->GetCurrentMapModeIndex();
+                static constexpr const char* modeNames[] = {"Freeplay", "Training", "Workshop"};
+                gameWrapper->Toast("SuiteSpot", std::string("Map Mode: ") + modeNames[newMode], "default", 3.5f,
+                                   ToastType_Info);
+                cvarManager->getCvar("suitespot_map_type").setValue(newMode);
             } else if (check(settingsSync->GetHotkeyMapModeBkKey1(), settingsSync->GetHotkeyMapModeBkKey2())) {
                 LOG("Hotkey: cycle_map_mode_bk");
-                ShowToastForAction("Switched map mode backward");
                 mapManager->CycleMapMode(false);
-                cvarManager->getCvar("suitespot_map_type").setValue(mapManager->GetCurrentMapModeIndex());
+                int newMode = mapManager->GetCurrentMapModeIndex();
+                static constexpr const char* modeNames[] = {"Freeplay", "Training", "Workshop"};
+                gameWrapper->Toast("SuiteSpot", std::string("Map Mode: ") + modeNames[newMode], "default", 3.5f,
+                                   ToastType_Info);
+                cvarManager->getCvar("suitespot_map_type").setValue(newMode);
             } else if (check(settingsSync->GetHotkeyCycleMapFwdKey1(), settingsSync->GetHotkeyCycleMapFwdKey2())) {
                 LOG("Hotkey: cycle_map_fwd");
-                ShowToastForAction("Next map");
                 mapManager->CycleMap(true);
                 int mode = mapManager->GetCurrentMapModeIndex();
-                if (mode == 0)
+                std::string mapName;
+                if (mode == 0) {
+                    mapName = mapManager->GetCurrentFreeplayName();
                     cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
-                else if (mode == 1)
+                } else if (mode == 1) {
+                    mapName = mapManager->GetCurrentTrainingName();
                     cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
-                else if (mode == 2)
+                } else if (mode == 2) {
+                    mapName = mapManager->GetCurrentWorkshopName();
                     cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
+                }
+                gameWrapper->Toast("SuiteSpot", "Map: " + mapName, "default", 3.5f, ToastType_Info);
             } else if (check(settingsSync->GetHotkeyCycleMapBkKey1(), settingsSync->GetHotkeyCycleMapBkKey2())) {
                 LOG("Hotkey: cycle_map_bk");
-                ShowToastForAction("Previous map");
                 mapManager->CycleMap(false);
                 int mode = mapManager->GetCurrentMapModeIndex();
-                if (mode == 0)
+                std::string mapName;
+                if (mode == 0) {
+                    mapName = mapManager->GetCurrentFreeplayName();
                     cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
-                else if (mode == 1)
+                } else if (mode == 1) {
+                    mapName = mapManager->GetCurrentTrainingName();
                     cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
-                else if (mode == 2)
+                } else if (mode == 2) {
+                    mapName = mapManager->GetCurrentWorkshopName();
                     cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
+                }
+                gameWrapper->Toast("SuiteSpot", "Map: " + mapName, "default", 3.5f, ToastType_Info);
             } else if (check(settingsSync->GetHotkeyLoadNowKey1(), settingsSync->GetHotkeyLoadNowKey2())) {
                 LOG("Hotkey: load_now");
-                ShowToastForAction("Loading current map");
                 int mapType = settingsSync->GetMapType();
                 std::string cmd;
                 if (mapType == 0) {
@@ -328,7 +343,11 @@ void SuiteSpot::LoadHooks()
                     auto path = settingsSync->GetCurrentWorkshopPath();
                     if (!path.empty()) cmd = "load_workshop \"" + path + "\"";
                 }
-                if (!cmd.empty()) gameWrapper->Execute([this, cmd](GameWrapper*) { cvarManager->executeCommand(cmd); });
+                if (!cmd.empty()) {
+                    gameWrapper->Execute([this, cmd](GameWrapper*) { cvarManager->executeCommand(cmd); });
+                } else {
+                    gameWrapper->Toast("SuiteSpot", "No map selected", "default", 3.5f, ToastType_Error);
+                }
             }
         }
 
@@ -694,21 +713,4 @@ void SuiteSpot::LoadTrainingPacksFromFile(const std::filesystem::path& filePath)
     if (trainingPackMgr) {
         trainingPackMgr->LoadPacksFromFile(filePath);
     }
-}
-
-void SuiteSpot::ShowToastForAction(const std::string& actionName)
-{
-    int mapType = settingsSync->GetMapType();
-    std::string currentSelection;
-
-    if (mapType == 0) {
-        currentSelection = settingsSync->GetCurrentFreeplayCode();
-    } else if (mapType == 1) {
-        currentSelection = settingsSync->GetCurrentTrainingCode();
-    } else if (mapType == 2) {
-        currentSelection = settingsSync->GetCurrentWorkshopPath();
-    }
-
-    std::string body = currentSelection.empty() ? "" : currentSelection;
-    gameWrapper->Toast("SuiteSpot", actionName + (body.empty() ? "" : " • " + body), "default", 3.5f, ToastType_Info);
 }
