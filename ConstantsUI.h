@@ -367,20 +367,23 @@ inline const ImVec4 REFRESH_MESSAGE_COLOR = ImVec4(0.5f, 0.8f, 1.0f, 1.0f);
 } // namespace LoadoutUI
 
 // ===================================================================
-// QUICK PICKS UI CONSTANTS
+// QUICK PICKS UI CONSTANTS (Two-Panel Layout)
 // ===================================================================
 namespace QuickPicksUI {
-// Width of the Quick Picks table in Training Mode
-constexpr float TABLE_WIDTH = 1100.0f;
+// Percentage of available width for left panel (pack list)
+constexpr float LEFT_PANEL_WIDTH_PERCENT = 0.40f;
 
-// Maximum height of the scrollable Quick Picks table
-constexpr float TABLE_HEIGHT = 550.0f;
+// Minimum width for left panel
+constexpr float LEFT_PANEL_MIN_WIDTH = 200.0f;
 
-// Width of the "Name" column in Quick Picks table
-constexpr float COLUMN_NAME_WIDTH = 350.0f;
+// Height of the two-panel browser area
+constexpr float BROWSER_HEIGHT = 400.0f;
 
-// Width of the "Shots" column in Quick Picks table
-constexpr float COLUMN_SHOTS_WIDTH = 80.0f;
+// Colors
+inline const ImVec4 PACK_NAME_COLOR = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+inline const ImVec4 CREATOR_COLOR = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
+inline const ImVec4 DESCRIPTION_COLOR = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
+inline const ImVec4 SELECTED_BADGE_COLOR = ImVec4(0.2f, 0.7f, 0.2f, 1.0f);
 } // namespace QuickPicksUI
 
 // ===================================================================

@@ -83,6 +83,9 @@ class SettingsUI
     int selectedWorkshopIndex = -1;       // Currently selected in list
     std::string lastSelectedWorkshopPath; // Track path to detect changes
 
+    // Quick Picks two-panel layout state
+    int selectedQuickPickIndex = -1; // Currently highlighted in left panel
+
     // Workshop browser (RLMAPS) state
     int selectedBrowserIndex = -1;                   // Indexes into displayResultList
     std::vector<RLMAPS_MapResult> cachedResultList;  // Unmodified API results (source of truth)

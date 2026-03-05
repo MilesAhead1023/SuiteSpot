@@ -783,6 +783,7 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
 
     if (ImGui::RadioButton("Flicks Picks", listType == 0)) {
         UI::Helpers::SetCVarSafely("suitespot_quickpicks_list_type", 0, plugin_->cvarManager, plugin_->gameWrapper);
+        selectedQuickPickIndex = -1;
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Curated selection of 10 essential training packs");
@@ -790,6 +791,7 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
     ImGui::SameLine();
     if (ImGui::RadioButton("Your Favorites", listType == 1)) {
         UI::Helpers::SetCVarSafely("suitespot_quickpicks_list_type", 1, plugin_->cvarManager, plugin_->gameWrapper);
+        selectedQuickPickIndex = -1;
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Your most-used training packs based on load history");
@@ -799,98 +801,210 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
     ImGui::Separator();
     ImGui::Spacing();
 
-    // Display header based on list type
-    if (listType == 0) {
-        ImGui::TextColored(UI::TrainingPackUI::SECTION_HEADER_TEXT_COLOR, "Flicks Picks");
-    } else {
-        ImGui::TextColored(UI::TrainingPackUI::SECTION_HEADER_TEXT_COLOR, "Your Favorites");
-    }
-    ImGui::SameLine();
-    ImGui::TextDisabled("(Select post-match pack)");
-
+    // Build pack metadata list for this render pass
     std::vector<std::string> quickPicks = GetQuickPicksList();
     std::string selectedCode = plugin_->settingsSync->GetQuickPicksSelectedCode();
 
-    // If nothing selected, default to the first one in the list
+    // Default selection on first render
     if (selectedCode.empty() && !quickPicks.empty()) {
         selectedCode = quickPicks[0];
         plugin_->settingsSync->SetQuickPicksSelected(selectedCode);
         plugin_->cvarManager->getCvar("suitespot_quickpicks_selected").setValue(selectedCode);
     }
 
-    if (ImGui::BeginChild("QuickPicksList", ImVec2(UI::QuickPicksUI::TABLE_WIDTH, UI::QuickPicksUI::TABLE_HEIGHT), true)) {
-        for (const auto& code : quickPicks) {
-            std::string name = "Unknown Pack";
-            int shots = 0;
-            std::string description = "";
-            bool found = false;
+    // Clamp index
+    if (selectedQuickPickIndex >= (int)quickPicks.size()) {
+        selectedQuickPickIndex = -1;
+    }
 
-            // 1. Try to find in loaded cache
-            const auto& trainingPacks = plugin_->trainingPackMgr ? plugin_->trainingPackMgr->GetPacks() : RLTraining;
-            auto it = std::find_if(trainingPacks.begin(), trainingPacks.end(),
-                                   [&](const TrainingEntry& e) { return e.code == code; });
+    // Helper: resolve TrainingEntry* by code
+    auto resolveEntry = [&](const std::string& code) -> const TrainingEntry* {
+        const auto& packs = plugin_->trainingPackMgr ? plugin_->trainingPackMgr->GetPacks() : RLTraining;
+        auto it = std::find_if(packs.begin(), packs.end(), [&](const TrainingEntry& e) { return e.code == code; });
+        if (it != packs.end()) return &(*it);
+        return nullptr;
+    };
 
-            if (it != trainingPacks.end()) {
-                name = it->name;
-                shots = it->shotCount;
-                description = it->staffComments.empty() ? it->notes : it->staffComments;
-                found = true;
+    // Calculate panel widths
+    float availWidth = ImGui::GetContentRegionAvail().x;
+    float leftWidth = std::max(UI::QuickPicksUI::LEFT_PANEL_MIN_WIDTH,
+                               availWidth * UI::QuickPicksUI::LEFT_PANEL_WIDTH_PERCENT);
+    float rightWidth = availWidth - leftWidth - ImGui::GetStyle().ItemSpacing.x;
+
+    ImGui::BeginGroup();
+
+    // === LEFT PANEL: Pack List ===
+    if (ImGui::BeginChild("QuickPicksList", ImVec2(leftWidth, UI::QuickPicksUI::BROWSER_HEIGHT), true)) {
+        const char* header = (listType == 0) ? "Flicks Picks" : "Your Favorites";
+        ImGui::TextDisabled("%s  (%d packs)", header, (int)quickPicks.size());
+        ImGui::Separator();
+
+        for (int i = 0; i < (int)quickPicks.size(); i++) {
+            const std::string& code = quickPicks[i];
+            bool isPostMatch = (code == selectedCode);
+            bool isHighlighted = (i == selectedQuickPickIndex);
+
+            ImGui::PushID(i);
+
+            // Post-match selection marker
+            if (isPostMatch) {
+                ImGui::PushStyleColor(ImGuiCol_Text, UI::QuickPicksUI::SELECTED_BADGE_COLOR);
+                ImGui::TextUnformatted(">");
+                ImGui::PopStyleColor();
+                ImGui::SameLine();
+            }
+
+            // Resolve display name
+            std::string displayName = code;
+            if (const TrainingEntry* e = resolveEntry(code)) {
+                displayName = e->name;
             } else {
-                // 2. Try to find in DefaultPacks (Hardcoded fallback for first run)
-                for (const auto& defPack : DefaultPacks::FLICKS_PICKS) {
-                    if (defPack.code == code) {
-                        name = defPack.name;
-                        shots = defPack.shotCount;
-                        description = defPack.description;
-                        found = true;
+                for (const auto& d : DefaultPacks::FLICKS_PICKS) {
+                    if (d.code == code) {
+                        displayName = d.name;
                         break;
                     }
                 }
             }
 
-            if (found) {
-                bool isSelected = (code == selectedCode);
-
-                // Add top padding
-                ImGui::Dummy(ImVec2(0, 4.0f));
-
-                ImGui::PushID(code.c_str());
-                if (ImGui::RadioButton("##select", isSelected)) {
-                    selectedCode = code;
-                    LOG("SuiteSpot UI: User selected Training pack: {} ({})", name, code);
-                    plugin_->settingsSync->SetQuickPicksSelected(code);
-                    plugin_->cvarManager->getCvar("suitespot_quickpicks_selected").setValue(code);
-                }
-                ImGui::SameLine();
-
-                // Name and Shot Count
-                float availWidth = ImGui::GetContentRegionAvail().x;
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f)); // White for name
-                ImGui::Text("%s", name.c_str());
-                ImGui::PopStyleColor();
-                ImGui::SameLine(availWidth - 80.0f);
-                ImGui::TextDisabled("| %d shots", shots);
-
-                // Description (Indented and Wrapped)
-                if (!description.empty()) {
-                    ImGui::Indent(28.0f);
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f)); // Darker gray for description
-                    ImGui::PushTextWrapPos(ImGui::GetWindowContentRegionWidth() - 10.0f);
-                    ImGui::TextUnformatted(description.c_str());
-                    ImGui::PopTextWrapPos();
-                    ImGui::PopStyleColor();
-                    ImGui::Unindent(28.0f);
-                }
-
-                // Add bottom padding
-                ImGui::Dummy(ImVec2(0, 4.0f));
-
-                ImGui::Separator();
-                ImGui::PopID();
+            if (ImGui::Selectable(displayName.c_str(), isHighlighted)) {
+                selectedQuickPickIndex = i;
             }
+
+            // Double-click to load immediately
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+                SuiteSpot* p = plugin_;
+                std::string c = code;
+                if (p->usageTracker) p->usageTracker->IncrementLoadCount(c);
+                p->gameWrapper->SetTimeout([p, c](GameWrapper*) { p->cvarManager->executeCommand("load_training " + c); },
+                                           0.0f);
+                statusMessage.ShowSuccess("Loading Training Pack", 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                if (p->cvarManager) p->cvarManager->executeCommand("togglemenu settings");
+            }
+
+            ImGui::PopID();
         }
     }
     ImGui::EndChild();
+
+    ImGui::SameLine();
+
+    // === RIGHT PANEL: Details ===
+    if (ImGui::BeginChild("QuickPicksDetails", ImVec2(rightWidth, UI::QuickPicksUI::BROWSER_HEIGHT), true)) {
+        if (selectedQuickPickIndex >= 0 && selectedQuickPickIndex < (int)quickPicks.size()) {
+            const std::string& code = quickPicks[selectedQuickPickIndex];
+            bool isPostMatch = (code == selectedCode);
+
+            // Resolve metadata — try live cache first, then DefaultPacks
+            std::string name = code;
+            std::string creator;
+            std::string difficulty;
+            std::string description;
+            std::vector<std::string> tags;
+            int shots = 0;
+
+            if (const TrainingEntry* e = resolveEntry(code)) {
+                name = e->name;
+                creator = e->creator;
+                difficulty = e->difficulty;
+                shots = e->shotCount;
+                description = e->staffComments.empty() ? e->notes : e->staffComments;
+                tags = e->tags;
+            } else {
+                for (const auto& d : DefaultPacks::FLICKS_PICKS) {
+                    if (d.code == code) {
+                        name = d.name;
+                        shots = d.shotCount;
+                        description = d.description;
+                        break;
+                    }
+                }
+            }
+
+            // Pack name
+            ImGui::PushStyleColor(ImGuiCol_Text, UI::QuickPicksUI::PACK_NAME_COLOR);
+            ImGui::TextWrapped("%s", name.c_str());
+            ImGui::PopStyleColor();
+
+            // Creator
+            if (!creator.empty()) {
+                ImGui::PushStyleColor(ImGuiCol_Text, UI::QuickPicksUI::CREATOR_COLOR);
+                ImGui::Text("By: %s", creator.c_str());
+                ImGui::PopStyleColor();
+            }
+
+            // Shots + difficulty on same line
+            if (shots > 0) ImGui::Text("%d shots", shots);
+            if (!difficulty.empty()) {
+                ImGui::SameLine();
+                ImGui::TextDisabled("| %s", difficulty.c_str());
+            }
+
+            // Tags
+            if (!tags.empty()) {
+                ImGui::Spacing();
+                for (const auto& tag : tags) {
+                    ImGui::TextDisabled("[%s]", tag.c_str());
+                    ImGui::SameLine();
+                }
+                ImGui::NewLine();
+            }
+
+            // Description
+            if (!description.empty()) {
+                ImGui::Spacing();
+                ImGui::PushStyleColor(ImGuiCol_Text, UI::QuickPicksUI::DESCRIPTION_COLOR);
+                ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+                ImGui::TextWrapped("%s", description.c_str());
+                ImGui::PopTextWrapPos();
+                ImGui::PopStyleColor();
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            // Post-match selection indicator
+            if (isPostMatch) {
+                ImGui::TextColored(UI::QuickPicksUI::SELECTED_BADGE_COLOR, "Selected for Post-Match Auto-Load");
+                ImGui::Spacing();
+            }
+
+            // Action buttons
+            if (!isPostMatch) {
+                if (ImGui::Button("Select for Post-Match", ImVec2(180, 26))) {
+                    selectedCode = code;
+                    plugin_->settingsSync->SetQuickPicksSelected(code);
+                    plugin_->cvarManager->getCvar("suitespot_quickpicks_selected").setValue(code);
+                    statusMessage.ShowSuccess("Pack selected for post-match", 2.0f,
+                                              UI::StatusMessage::DisplayMode::TimerWithFade);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Load this pack automatically after matches end");
+                }
+                ImGui::SameLine();
+            }
+
+            if (ImGui::Button("Load Now", ImVec2(100, 26))) {
+                SuiteSpot* p = plugin_;
+                std::string c = code;
+                if (p->usageTracker) p->usageTracker->IncrementLoadCount(c);
+                p->gameWrapper->SetTimeout([p, c](GameWrapper*) { p->cvarManager->executeCommand("load_training " + c); },
+                                           0.0f);
+                statusMessage.ShowSuccess("Loading Training Pack", 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                if (p->cvarManager) p->cvarManager->executeCommand("togglemenu settings");
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Load this training pack immediately");
+            }
+
+        } else {
+            ImGui::TextDisabled("Select a pack from the list");
+        }
+    }
+    ImGui::EndChild();
+
+    ImGui::EndGroup();
 }
 
 std::vector<std::string> SettingsUI::GetQuickPicksList()
