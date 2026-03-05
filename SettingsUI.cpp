@@ -528,7 +528,8 @@ void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue)
     for (int i = 0; i < 3; i++) {
         if (i > 0) ImGui::SameLine(0, 4);
         bool active = (mapTypeValue == i);
-        if (active) {
+        bool wasActive = active; // snapshot BEFORE CheckButton modifies it
+        if (wasActive) {
             ImGui::PushStyleColor(ImGuiCol_Button, UI::MAP_MODE_ACTIVE_COLOR);
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::MAP_MODE_ACTIVE_COLOR);
         }
@@ -537,7 +538,7 @@ void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue)
             LOG("SuiteSpot UI: User switched Map Mode to {}", modeLabels[i]);
             UI::Helpers::SetCVarSafely("suitespot_map_type", mapTypeValue, plugin_->cvarManager, plugin_->gameWrapper);
         }
-        if (active) ImGui::PopStyleColor(2);
+        if (wasActive) ImGui::PopStyleColor(2); // pop must match push count
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Choose which map type loads after matches:\nFreeplay = Official | Training = Custom Packs | "
