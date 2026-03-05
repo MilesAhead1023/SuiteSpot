@@ -11,21 +11,19 @@ CompileFlags:
     - -DNDEBUG
     - -D_CONSOLE
 
-    # BakkesMod SDK headers (via WSL2 path to Windows AppData)
-    # NOTE FOR AI/FUTURE SESSIONS: These are machine-specific paths for WSL2.
-    # The authoritative SDK path is resolved by BakkesMod.props via Windows registry:
-    # HKEY_CURRENT_USER\Software\BakkesMod\AppPath
-    # If paths fail, check BakkesMod.props and update both this file and the WSL mount path.
-    - -I/mnt/c/Users/bmile/AppData/Roaming/bakkesmod/bakkesmod/bakkesmodsdk/include
+    # BakkasMod SDK headers
+    # Path is machine-specific (resolved via Windows registry in MSBuild via BakkesMod.props).
+    # For IDE support, add your local path here or set clangd.arguments in .vscode/settings.json:
+    #   -I<path-to-bakkesmodsdk>/include
+    # Example (WSL2): -I/mnt/c/Users/<you>/AppData/Roaming/bakkesmod/bakkesmod/bakkesmodsdk/include
 
     # vcpkg x64-windows includes
-    - -I/mnt/c/Users/bmile/vcpkg/installed/x64-windows/include
-
-    # Project root (for pch.h, MapList.h, etc.)
-    - -I/home/bmile/SuiteSpot
+    # Path is machine-specific. For IDE support, add your local path here:
+    #   -I<vcpkg-root>/installed/x64-windows/include
+    # Example (WSL2): -I/mnt/c/Users/<you>/vcpkg/installed/x64-windows/include
 
     # ImGui (vendored in IMGUI/)
-    - -I/home/bmile/SuiteSpot/IMGUI
+    - -IIMGUI
 
     # Suppress MSVC-specific warnings that clang doesn't understand
     - -Wno-unknown-pragmas

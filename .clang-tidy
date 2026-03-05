@@ -50,7 +50,7 @@ Checks: >
 
 WarningsAsErrors: ''
 
-HeaderFilterRegex: '^/home/bmile/SuiteSpot/(?!IMGUI|imgui).*\.(h|hpp)$'
+HeaderFilterRegex: '^(?!.*(IMGUI|imgui|bakkesmodsdk|vcpkg_installed|vcpkg)).*\.(h|hpp)$'
 
 CheckOptions:
   - key: modernize-use-auto.MinTypeNameLength
@@ -66,8 +66,9 @@ CheckOptions:
   - key: readability-identifier-naming.ConstantCase
     value: UPPER_CASE
 
-# Suppress third-party and SDK headers from analysis
-ExtraArgs:
-  - -isystem/mnt/c/Users/bmile/AppData/Roaming/bakkesmod/bakkesmod/bakkesmodsdk/include
-  - -isystem/mnt/c/Users/bmile/vcpkg/installed/x64-windows/include
-  - -isystem/home/bmile/SuiteSpot/IMGUI
+# ExtraArgs for suppressing SDK/third-party headers from clang-tidy analysis.
+# These paths are machine-specific (WSL2 example shown). Set them in a local
+# .clang-tidy override or via --extra-arg on the command line:
+#   -isystem <BakkasMod SDK include dir>
+#   -isystem <vcpkg installed include dir>
+#   -isystem <repo root>/IMGUI

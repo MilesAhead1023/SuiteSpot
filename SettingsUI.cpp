@@ -15,7 +15,7 @@
 
 #include "IMGUI/imguivariouscontrols.h"
 #include "IMGUI/imgui_searchablecombo.h"
-#include "IMGUI/IconsFontAwesome5.h"
+#include "IMGUI/SuiteSpotIcons.h"
 
 #include <algorithm>
 #include <fstream>
