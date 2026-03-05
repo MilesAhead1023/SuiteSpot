@@ -243,8 +243,6 @@ void SettingsUI::RenderMainSettingsWindow()
         float sbH = ImGui::GetTextLineHeight() + ImGui::GetStyle().WindowPadding.y * 2.0f + 2.0f;
         ImGui::BeginChildFrame(ImGui::GetID("##StatusBar"), ImVec2(-1.0f, sbH));
         {
-            ImGui::TextColored(accent, "\xe2\x97\x8f");
-            ImGui::SameLine(0, 5);
             ImGui::TextColored(green, "Mode: %s", modeNames[mapTypeValue]);
 
             ImGui::SameLine(0, 10);
@@ -383,7 +381,7 @@ void SettingsUI::RenderMainSettingsWindow()
             ImGui::Spacing();
             DrawSectionHeader("Keyboard Shortcuts", ImGui::ColorConvertFloat4ToU32(UI::SECTION_HEADER_COLOR));
             ImGui::Spacing();
-            ImGui::TextDisabled("Click \xe2\x97\x8f to capture a key press, or type the UE3 name manually.");
+            ImGui::TextDisabled("Click [o] to capture a key press, or type the UE3 name manually.");
             ImGui::TextDisabled("Key 1 = trigger.  Key 2 = required held modifier.  Both must be set.");
             ImGui::TextDisabled("Xbox buttons are captured automatically.");
             ImGui::Spacing();
@@ -425,8 +423,8 @@ void SettingsUI::RenderMainSettingsWindow()
                         if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tip);
                     }
                     ImGui::SameLine(0, 2);
-                    ImGui::PushID(slot); // Unique ID per slot within the row
-                    if (ImGui::SmallButton(cap ? "\xe2\x96\xa0" : "\xe2\x97\x8f")) { // ■ / ●
+                    ImGui::PushID(slot);                           // Unique ID per slot within the row
+                    if (ImGui::SmallButton(cap ? "[x]" : "[o]")) { // stop / record
                         plugin_->captureRow = cap ? -1 : i;
                         plugin_->captureSlot = slot;
                     }
@@ -446,7 +444,7 @@ void SettingsUI::RenderMainSettingsWindow()
 
                 // Col 1: [Key1 slot]  +  [Key2 slot]
                 renderSlot(0, row.key1CVar, "##k1", "##cb1", "X##k1x",
-                           "Trigger key — click \xe2\x97\x8f to capture, or type UE3 name");
+                           "Trigger key — click [o] to capture, or type UE3 name");
                 ImGui::SameLine(0, 6);
                 ImGui::AlignTextToFramePadding();
                 ImGui::TextUnformatted("+");
