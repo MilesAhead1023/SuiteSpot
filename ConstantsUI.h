@@ -25,6 +25,18 @@ constexpr float INTERACTIVE_FRAME_ROUNDING = 3.0f;
 // Border color for interactive controls — soft blue accent
 inline const ImVec4 INTERACTIVE_BORDER_COLOR = ImVec4(0.40f, 0.55f, 0.80f, 0.85f);
 
+// Padding inside framed controls (buttons, inputs, combos) — wider than ImGui default (4,3)
+inline const ImVec2 FRAME_PADDING = {8.0f, 4.0f};
+
+// Spacing between consecutive items — more vertical breathing room than default (8,4)
+inline const ImVec2 ITEM_SPACING = {8.0f, 6.0f};
+
+// Inner padding of child/popup windows — slightly more horizontal than default (8,8)
+inline const ImVec2 WINDOW_PADDING = {10.0f, 8.0f};
+
+// Corner rounding (px) for child panel borders — matches FrameRounding
+constexpr float CHILD_ROUNDING = 4.0f;
+
 // ===================================================================
 // SETTINGS UI CONSTANTS
 // ===================================================================

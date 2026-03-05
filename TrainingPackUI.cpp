@@ -75,11 +75,15 @@ void TrainingPackUI::Render()
     // Interactive control styling: border + rounding on all buttons, checkboxes, inputs, etc.
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, UI::INTERACTIVE_FRAME_BORDER_SIZE);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, UI::INTERACTIVE_FRAME_ROUNDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, UI::FRAME_PADDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, UI::ITEM_SPACING);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, UI::WINDOW_PADDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, UI::CHILD_ROUNDING);
     ImGui::PushStyleColor(ImGuiCol_Border, UI::INTERACTIVE_BORDER_COLOR);
 
     if (!ImGui::Begin(GetMenuTitle().c_str(), &isWindowOpen_, browserFlags)) {
         ImGui::PopStyleColor(1);
-        ImGui::PopStyleVar(2);
+        ImGui::PopStyleVar(6);
         ImGui::End();
         return;
     }
@@ -164,7 +168,7 @@ void TrainingPackUI::Render()
         ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
                            "your own custom packs below.");
         ImGui::PopStyleColor(1);
-        ImGui::PopStyleVar(2);
+        ImGui::PopStyleVar(6);
         ImGui::End();
         return;
     }
@@ -183,7 +187,7 @@ void TrainingPackUI::Render()
         ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
                            "your own custom packs above.");
         ImGui::PopStyleColor(1);
-        ImGui::PopStyleVar(2);
+        ImGui::PopStyleVar(6);
         ImGui::End();
         return;
     }
@@ -645,7 +649,7 @@ void TrainingPackUI::Render()
 
     ImGui::Spacing();
     ImGui::PopStyleColor(1);
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(6);
     ImGui::End();
 }
 

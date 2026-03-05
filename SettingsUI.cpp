@@ -30,6 +30,10 @@ void SettingsUI::RenderMainSettingsWindow()
     // Interactive control styling: border + rounding on all buttons, checkboxes, inputs, etc.
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, UI::INTERACTIVE_FRAME_BORDER_SIZE);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, UI::INTERACTIVE_FRAME_ROUNDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, UI::FRAME_PADDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, UI::ITEM_SPACING);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, UI::WINDOW_PADDING);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, UI::CHILD_ROUNDING);
     ImGui::PushStyleColor(ImGuiCol_Border, UI::INTERACTIVE_BORDER_COLOR);
 
     ImGui::SetWindowFontScale(UI::FONT_SCALE);
@@ -86,7 +90,10 @@ void SettingsUI::RenderMainSettingsWindow()
         }
     }
 
-    ImGui::SameLine(ImGui::GetWindowWidth() - 150.0f);
+    {
+        float btnW = ImGui::CalcTextSize("LOAD NOW").x + ImGui::GetStyle().FramePadding.x * 2.0f + 8.0f;
+        ImGui::SameLine(ImGui::GetWindowWidth() - btnW - ImGui::GetStyle().WindowPadding.x);
+    }
     if (ImGui::Button("LOAD NOW", ImVec2(0, 26))) {
         int mapType = plugin_->GetMapType();
         SuiteSpot* p = plugin_;
@@ -263,6 +270,7 @@ void SettingsUI::RenderMainSettingsWindow()
                 ImGui::NextColumn(); // Skip right column
 
                 // Queue Delay
+                ImGui::AlignTextToFramePadding();
                 ImGui::Text("Queue Delay");
                 ImGui::NextColumn();
                 ImGui::SetNextItemWidth(-1);
@@ -288,6 +296,7 @@ void SettingsUI::RenderMainSettingsWindow()
                     mapDelayTooltip = "Wait before loading Workshop.";
                 }
 
+                ImGui::AlignTextToFramePadding();
                 ImGui::Text("Map Delay");
                 ImGui::NextColumn();
                 ImGui::SetNextItemWidth(-1);
@@ -432,7 +441,7 @@ void SettingsUI::RenderMainSettingsWindow()
     }
 
     ImGui::PopStyleColor(1); // ImGuiCol_Border
-    ImGui::PopStyleVar(2);   // FrameBorderSize, FrameRounding
+    ImGui::PopStyleVar(6);   // FrameBorderSize, FrameRounding, FramePadding, ItemSpacing, WindowPadding, ChildRounding
 }
 
 void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue)
@@ -446,6 +455,7 @@ void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue)
     ImGui::NextColumn();
 
     // Col 2: Map Mode
+    ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Map Mode:");
     ImGui::SameLine();
 
@@ -516,6 +526,7 @@ void SettingsUI::RenderFreeplayMode(std::string& currentFreeplayCode)
     ImGui::Columns(2, "FreeplayCols", false);
     ImGui::SetColumnWidth(0, 150.0f);
 
+    ImGui::AlignTextToFramePadding();
     ImGui::Text("Freeplay Map");
     ImGui::NextColumn();
 
@@ -562,9 +573,12 @@ void SettingsUI::RenderWorkshopMode(std::string& currentWorkshopPath)
 
 void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
 {
-    // Header with Refresh button
+    // Header with Refresh button (right-aligned)
     ImGui::Spacing();
-    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 70.0f);
+    {
+        float btnW = ImGui::CalcTextSize("Refresh").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        ImGui::SameLine(ImGui::GetContentRegionMax().x - btnW);
+    }
     if (ImGui::Button("Refresh", ImVec2(0, 0))) {
         plugin_->LoadWorkshopMaps();
         selectedWorkshopIndex = -1; // Reset selection
