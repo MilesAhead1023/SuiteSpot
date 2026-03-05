@@ -87,7 +87,8 @@ class TrainingPackUI : public BakkesMod::Plugin::PluginWindow
 
     // ── Thumbnail fetch ───────────────────────────────────────────────
     std::filesystem::path thumbnailCacheDir_;
-    std::string lastFetchedThumbnailCode_; // code we last triggered a fetch for
+    std::string lastFetchedThumbnailCode_;      // code we last triggered a fetch for
+    std::shared_ptr<ImageWrapper> youtubeIcon_; // small YouTube logo for list indicator
 
     // Returns YouTube video ID from various URL formats, or "" if not a YouTube URL
     static std::string ExtractYouTubeId(const std::string& url);

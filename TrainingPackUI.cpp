@@ -168,6 +168,9 @@ void TrainingPackUI::FetchThumbnailForSelected()
 TrainingPackUI::TrainingPackUI(SuiteSpot* plugin) : plugin_(plugin)
 {
     thumbnailCacheDir_ = plugin_->GetDataRoot() / "SuiteSpot" / "ThumbnailCache";
+    auto iconPath = plugin_->GetDataRoot() / "SuiteSpot" / "Resources" / "Icons" / "icon_youtube.png";
+    youtubeIcon_ = std::make_shared<ImageWrapper>(iconPath.string(), true);
+    youtubeIcon_->LoadForImGui([](bool) {});
 }
 
 std::string TrainingPackUI::GetMenuName()
@@ -467,14 +470,20 @@ void TrainingPackUI::Render()
 
                     ImGui::PushID(pack.code.c_str());
 
-                    // Video indicator dot (small red circle, no icon font needed)
+                    // Video indicator: YouTube icon if loaded, else small red dot
                     if (!pack.videoUrl.empty()) {
-                        ImVec2 dotPos = ImGui::GetCursorScreenPos();
-                        float r = ImGui::GetTextLineHeight() * 0.22f;
-                        dotPos.x += r + 1.0f;
-                        dotPos.y += ImGui::GetTextLineHeight() * 0.5f;
-                        ImGui::GetWindowDrawList()->AddCircleFilled(dotPos, r, IM_COL32(220, 50, 50, 220));
-                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + r * 2.0f + 5.0f);
+                        float iconSize = ImGui::GetTextLineHeight();
+                        if (youtubeIcon_ && youtubeIcon_->IsLoadedForImGui()) {
+                            ImGui::Image(youtubeIcon_->GetImGuiTex(), ImVec2(iconSize, iconSize));
+                        } else {
+                            ImVec2 dotPos = ImGui::GetCursorScreenPos();
+                            float r = iconSize * 0.22f;
+                            dotPos.x += r + 1.0f;
+                            dotPos.y += iconSize * 0.5f;
+                            ImGui::GetWindowDrawList()->AddCircleFilled(dotPos, r, IM_COL32(220, 50, 50, 220));
+                            ImGui::Dummy(ImVec2(iconSize, iconSize));
+                        }
+                        ImGui::SameLine(0, 3.0f);
                     }
 
                     if (ImGui::Selectable(pack.name.c_str(), isSelected,
