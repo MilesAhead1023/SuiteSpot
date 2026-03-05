@@ -52,6 +52,42 @@ constexpr float GRAB_MIN_SIZE = 10.0f;
 // Corner rounding for scrollbar handles
 constexpr float SCROLLBAR_ROUNDING = 3.0f;
 
+// Inner spacing inside composed widgets (checkbox+label, combo+label etc.)
+inline const ImVec2 ITEM_INNER_SPACING = {6.0f, 4.0f};
+
+// Selectable text alignment — vertically centered
+inline const ImVec2 SELECTABLE_TEXT_ALIGN = {0.0f, 0.5f};
+
+// Controlled indent spacing for sub-sections
+constexpr float INDENT_SPACING = 14.0f;
+
+// Status warning color (orange — "no map selected", missing inputs)
+inline const ImVec4 STATUS_WARN_COLOR = ImVec4(1.0f, 0.65f, 0.0f, 1.0f);
+
+// Section header accent color — bright blue, used by DrawSectionHeader helper
+inline const ImVec4 SECTION_HEADER_COLOR = ImVec4(0.45f, 0.78f, 1.0f, 1.0f);
+
+// Active/pressed map mode button highlight
+inline const ImVec4 MAP_MODE_ACTIVE_COLOR = ImVec4(0.22f, 0.50f, 0.82f, 1.00f);
+
+// === Scrollbar styling ===
+inline const ImVec4 SCROLLBAR_BG_COLOR = ImVec4(0.06f, 0.07f, 0.10f, 1.00f);
+inline const ImVec4 SCROLLBAR_GRAB_COLOR = ImVec4(0.22f, 0.28f, 0.40f, 1.00f);
+inline const ImVec4 SCROLLBAR_GRAB_HOVER_COLOR = ImVec4(0.30f, 0.40f, 0.58f, 1.00f);
+inline const ImVec4 SCROLLBAR_GRAB_ACTIVE_COLOR = ImVec4(0.38f, 0.52f, 0.72f, 1.00f);
+
+// Text selection highlight in inputs
+inline const ImVec4 TEXT_SELECTED_BG_COLOR = ImVec4(0.20f, 0.40f, 0.70f, 0.40f);
+
+// Popup/dropdown background — darker for depth
+inline const ImVec4 POPUP_BG_COLOR = ImVec4(0.08f, 0.09f, 0.13f, 0.96f);
+
+// Keyboard navigation highlight
+inline const ImVec4 NAV_HIGHLIGHT_COLOR = ImVec4(0.40f, 0.60f, 0.90f, 1.00f);
+
+// Separator line color — soft accent blue
+inline const ImVec4 SEPARATOR_COLOR = ImVec4(0.28f, 0.45f, 0.65f, 0.70f);
+
 // --- Button colors (visible dark-blue-slate so buttons stand out from window bg) ---
 inline const ImVec4 BUTTON_COLOR = ImVec4(0.22f, 0.28f, 0.40f, 0.80f);
 inline const ImVec4 BUTTON_HOVER_COLOR = ImVec4(0.30f, 0.40f, 0.58f, 0.90f);

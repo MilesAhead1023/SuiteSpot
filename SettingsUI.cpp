@@ -13,6 +13,9 @@
 #include "DefaultPacks.h"
 #include "bakkesmod/wrappers/GuiManagerWrapper.h"
 
+#include "IMGUI/imguivariouscontrols.h"
+#include "IMGUI/imgui_searchablecombo.h"
+
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -21,13 +24,25 @@
 
 SettingsUI::SettingsUI(SuiteSpot* plugin) : plugin_(plugin) {}
 
+// Draws a styled section header: 3px left accent bar + colored label
+static void DrawSectionHeader(const char* label, ImU32 accentColor)
+{
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    float h = ImGui::GetTextLineHeight();
+    dl->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + 3.0f, p.y + h), accentColor, 1.0f);
+    ImGui::Dummy(ImVec2(8.0f, 0.0f));
+    ImGui::SameLine(0, 0);
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(accentColor), "%s", label);
+}
+
 void SettingsUI::RenderMainSettingsWindow()
 {
     if (!plugin_) {
         return;
     }
 
-    // Style vars (11)
+    // Style vars (14)
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, UI::INTERACTIVE_FRAME_BORDER_SIZE);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, UI::INTERACTIVE_FRAME_ROUNDING);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, UI::FRAME_PADDING);
@@ -39,7 +54,10 @@ void SettingsUI::RenderMainSettingsWindow()
     ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, UI::GRAB_ROUNDING);
     ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, UI::GRAB_MIN_SIZE);
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, UI::SCROLLBAR_ROUNDING);
-    // Colors (17)
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, UI::ITEM_INNER_SPACING);
+    ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, UI::SELECTABLE_TEXT_ALIGN);
+    ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, UI::INDENT_SPACING);
+    // Colors (25)
     ImGui::PushStyleColor(ImGuiCol_Border, UI::INTERACTIVE_BORDER_COLOR);
     ImGui::PushStyleColor(ImGuiCol_Button, UI::BUTTON_COLOR);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::BUTTON_HOVER_COLOR);
@@ -57,6 +75,14 @@ void SettingsUI::RenderMainSettingsWindow()
     ImGui::PushStyleColor(ImGuiCol_TabUnfocused, UI::TAB_UNFOCUSED_COLOR);
     ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, UI::TAB_UNFOCUSED_ACTIVE_COLOR);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, UI::CHILD_BG_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_Separator, UI::SEPARATOR_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, UI::SCROLLBAR_BG_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, UI::SCROLLBAR_GRAB_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, UI::SCROLLBAR_GRAB_HOVER_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, UI::SCROLLBAR_GRAB_ACTIVE_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, UI::TEXT_SELECTED_BG_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, UI::POPUP_BG_COLOR);
+    ImGui::PushStyleColor(ImGuiCol_NavHighlight, UI::NAV_HIGHLIGHT_COLOR);
 
     ImGui::SetWindowFontScale(UI::FONT_SCALE);
 
@@ -186,73 +212,71 @@ void SettingsUI::RenderMainSettingsWindow()
 
         const char* modeNames[] = {"Freeplay", "Training", "Workshop"};
         std::string currentMap = "<none>";
-        std::string queueDelayStr = std::to_string(delayQueueSecValue) + "s";
-        std::string mapDelayStr = "0s";
-        const ImVec4 white = UI::SettingsUI::STATUS_SEPARATOR_COLOR;
 
-        // Get current selection and appropriate delay
+        // Get current selection
         if (mapTypeValue == 0) {
-            // Find freeplay map by code
             auto it = std::find_if(RLMaps.begin(), RLMaps.end(),
                                    [&](const MapEntry& e) { return e.code == currentFreeplayCode; });
-            if (it != RLMaps.end()) {
-                currentMap = it->name;
-            }
-            mapDelayStr = std::to_string(delayFreeplaySecValue) + "s";
+            if (it != RLMaps.end()) currentMap = it->name;
         } else if (mapTypeValue == 1) {
-            mapDelayStr = std::to_string(delayTrainingSecValue) + "s";
-
-            // Get packs from manager for consistent lookup
-            const auto& trainingPacks = plugin_->trainingPackMgr ? plugin_->trainingPackMgr->GetPacks() : RLTraining;
-
             std::string targetCode = quickPicksSelectedCode;
             if (targetCode.empty()) targetCode = currentTrainingCode;
-
             auto targetPack = plugin_->trainingPackMgr->GetPackByCode(targetCode);
             if (targetPack) {
                 currentMap = targetPack->name;
             } else if (!targetCode.empty()) {
                 currentMap = targetCode + " (custom)";
-            } else {
-                currentMap = "<none selected>";
             }
-
-            mapDelayStr = "with " + std::to_string(delayTrainingSecValue) + "s delay";
         } else if (mapTypeValue == 2) {
-            // Find workshop map by path
             auto it = std::find_if(RLWorkshop.begin(), RLWorkshop.end(),
                                    [&](const WorkshopEntry& e) { return e.filePath == currentWorkshopPath; });
-            if (it != RLWorkshop.end()) {
-                currentMap = it->name;
-            }
-            mapDelayStr = std::to_string(delayWorkshopSecValue) + "s";
+            if (it != RLWorkshop.end()) currentMap = it->name;
         }
 
-        // Map mode status
         const ImVec4 green = UI::SettingsUI::STATUS_ENABLED_TEXT_COLOR;
         const ImVec4 red = UI::SettingsUI::STATUS_DISABLED_TEXT_COLOR;
-        std::string modeText = "Mode: " + std::string(modeNames[mapTypeValue]);
+        const ImVec4 orange = UI::STATUS_WARN_COLOR;
+        const ImVec4 accent = UI::SECTION_HEADER_COLOR;
+        const ImVec4 dim = ImVec4(0.45f, 0.45f, 0.45f, 1.0f);
 
-        int currentDelay = (mapTypeValue == 0) ? delayFreeplaySecValue
-                                               : (mapTypeValue == 1 ? delayTrainingSecValue : delayWorkshopSecValue);
-        if (currentDelay > 0) {
-            modeText += " Delayed: " + mapDelayStr;
-        }
+        // Status bar as framed child panel (single line)
+        float sbH = ImGui::GetTextLineHeight() + ImGui::GetStyle().WindowPadding.y * 2.0f + 2.0f;
+        ImGui::BeginChildFrame(ImGui::GetID("##StatusBar"), ImVec2(-1.0f, sbH));
+        {
+            ImGui::TextColored(accent, "\xe2\x97\x8f");
+            ImGui::SameLine(0, 5);
+            ImGui::TextColored(green, "Mode: %s", modeNames[mapTypeValue]);
 
-        ImGui::TextColored(green, "%s", modeText.c_str());
-        ImGui::SameLine();
-        ImGui::TextColored(white, "|");
-        ImGui::SameLine();
-        ImGui::TextColored(green, "Map: %s", currentMap.c_str());
-        ImGui::SameLine();
-        ImGui::TextColored(white, "|");
-        ImGui::SameLine();
-        const ImVec4 queueColor = autoQueueValue ? green : red;
-        if (delayQueueSecValue > 0) {
-            ImGui::TextColored(queueColor, "Next Match Queue Delayed: %s", queueDelayStr.c_str());
-        } else {
-            ImGui::TextColored(queueColor, "Next Match Queue");
+            ImGui::SameLine(0, 10);
+            ImGui::TextColored(dim, "|");
+            ImGui::SameLine(0, 10);
+
+            ImGui::Text("Map:");
+            ImGui::SameLine(0, 4);
+            bool noMap = (currentMap == "<none>" || currentMap == "<none selected>");
+            ImGui::TextColored(noMap ? orange : green, "%s", currentMap.c_str());
+
+            ImGui::SameLine(0, 10);
+            ImGui::TextColored(dim, "|");
+            ImGui::SameLine(0, 10);
+
+            const ImVec4 queueColor = autoQueueValue ? green : red;
+            ImGui::TextColored(queueColor, "Auto-Queue: %s", autoQueueValue ? "ON" : "OFF");
+            if (autoQueueValue && delayQueueSecValue > 0) {
+                ImGui::SameLine(0, 4);
+                ImGui::TextDisabled("(+%ds queue)", delayQueueSecValue);
+            }
+
+            int currentDelay = (mapTypeValue == 0) ? delayFreeplaySecValue
+                                                   : (mapTypeValue == 1 ? delayTrainingSecValue : delayWorkshopSecValue);
+            if (currentDelay > 0) {
+                ImGui::SameLine(0, 10);
+                ImGui::TextColored(dim, "|");
+                ImGui::SameLine(0, 10);
+                ImGui::TextDisabled("Map Delay: +%ds", currentDelay);
+            }
         }
+        ImGui::EndChildFrame();
     }
 
     ImGui::Spacing();
@@ -280,53 +304,50 @@ void SettingsUI::RenderMainSettingsWindow()
             if (enabledValue) {
                 ImGui::Spacing();
 
-                // 1) Unified Header: Auto-Queue Toggle | Queue Delay | Map Delay
-                ImGui::Columns(2, "MapSelectHeaderCols", false);
-                ImGui::SetColumnWidth(0, 150.0f);
-
-                // Auto-Queue
+                // Compact single row: [Auto-Queue]  Queue Delay: [__] s  Map Delay: [__] s
                 UI::Helpers::CheckboxWithCVar("Auto-Queue", autoQueueValue, "suitespot_auto_queue",
                                               plugin_->cvarManager, plugin_->gameWrapper,
                                               "Automatically queue into the next match after the current match ends.");
-                ImGui::NextColumn();
-                ImGui::NextColumn(); // Skip right column
-
-                // Queue Delay
+                ImGui::SameLine(0, 20);
                 ImGui::AlignTextToFramePadding();
-                ImGui::Text("Queue Delay");
-                ImGui::NextColumn();
-                ImGui::SetNextItemWidth(UI::SettingsUI::DELAY_QUEUE_INPUT_WIDTH);
+                ImGui::TextUnformatted("Queue Delay:");
+                ImGui::SameLine(0, 6);
+                ImGui::PushButtonRepeat(true);
                 UI::Helpers::InputIntWithRange("##QueueDelay", delayQueueSecValue,
                                                UI::SettingsUI::DELAY_QUEUE_MIN_SECONDS,
-                                               UI::SettingsUI::DELAY_QUEUE_MAX_SECONDS, 0.0f,
+                                               UI::SettingsUI::DELAY_QUEUE_MAX_SECONDS, 75.0f,
                                                "suitespot_delay_queue_sec", plugin_->cvarManager, plugin_->gameWrapper,
                                                "Wait before auto-queuing.", nullptr);
-                ImGui::NextColumn();
+                ImGui::PopButtonRepeat();
+                ImGui::SameLine(0, 3);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("s");
+                ImGui::SameLine(0, 16);
 
-                // Map Delay (Context-sensitive)
+                // Map Delay (context-sensitive CVar based on current map type)
                 int* currentMapDelayValue = &delayFreeplaySecValue;
                 const char* currentMapDelayCVar = "suitespot_delay_freeplay_sec";
                 const char* mapDelayTooltip = "Wait before loading Freeplay.";
-
-                if (mapTypeValue == 1) { // Training
+                if (mapTypeValue == 1) {
                     currentMapDelayValue = &delayTrainingSecValue;
                     currentMapDelayCVar = "suitespot_delay_training_sec";
                     mapDelayTooltip = "Wait before loading Training.";
-                } else if (mapTypeValue == 2) { // Workshop
+                } else if (mapTypeValue == 2) {
                     currentMapDelayValue = &delayWorkshopSecValue;
                     currentMapDelayCVar = "suitespot_delay_workshop_sec";
                     mapDelayTooltip = "Wait before loading Workshop.";
                 }
 
                 ImGui::AlignTextToFramePadding();
-                ImGui::Text("Map Delay");
-                ImGui::NextColumn();
-                ImGui::SetNextItemWidth(UI::SettingsUI::DELAY_QUEUE_INPUT_WIDTH);
-                UI::Helpers::InputIntWithRange("##MapDelay", *currentMapDelayValue, 0, 300, 0.0f, currentMapDelayCVar,
+                ImGui::TextUnformatted("Map Delay:");
+                ImGui::SameLine(0, 6);
+                ImGui::PushButtonRepeat(true);
+                UI::Helpers::InputIntWithRange("##MapDelay", *currentMapDelayValue, 0, 300, 75.0f, currentMapDelayCVar,
                                                plugin_->cvarManager, plugin_->gameWrapper, mapDelayTooltip, nullptr);
-                ImGui::NextColumn();
-
-                ImGui::Columns(1); // Reset
+                ImGui::PopButtonRepeat();
+                ImGui::SameLine(0, 3);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("s");
 
                 ImGui::Spacing();
                 ImGui::Separator();
@@ -359,6 +380,8 @@ void SettingsUI::RenderMainSettingsWindow()
 
         // ===== HOTKEYS TAB =====
         if (ImGui::BeginTabItem("Hotkeys")) {
+            ImGui::Spacing();
+            DrawSectionHeader("Keyboard Shortcuts", ImGui::ColorConvertFloat4ToU32(UI::SECTION_HEADER_COLOR));
             ImGui::Spacing();
             ImGui::TextDisabled("Click \xe2\x97\x8f to capture a key press, or type the UE3 name manually.");
             ImGui::TextDisabled("Key 1 = trigger.  Key 2 = required held modifier.  Both must be set.");
@@ -408,9 +431,11 @@ void SettingsUI::RenderMainSettingsWindow()
                         plugin_->captureSlot = slot;
                     }
                     ImGui::PopID();
-                    if (ImGui::IsItemHovered())
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
                         ImGui::SetTooltip(cap ? "Cancel (or press Esc)"
                                               : "Click then press any key (Keyboard or Xbox) to capture");
+                    }
                     if (!cap && buf[0] != '\0') {
                         ImGui::SameLine(0, 2);
                         if (ImGui::SmallButton(clrBtnId))
@@ -462,47 +487,53 @@ void SettingsUI::RenderMainSettingsWindow()
         ImGui::PopStyleVar();
     }
 
-    ImGui::PopStyleColor(17); // all color pushes
-    ImGui::PopStyleVar(11);   // all style var pushes
+    ImGui::PopStyleColor(25); // all color pushes
+    ImGui::PopStyleVar(14);   // all style var pushes
 }
 
 void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue)
 {
-    ImGui::Columns(2, "GeneralTabCols", false); // Invisible columns
-
-    // Col 1: Enable
+    // Row: [Enable SuiteSpot]  [Fix Training Speed]  ···  Mode: [Freeplay][Training][Workshop]
     UI::Helpers::CheckboxWithCVar("Enable SuiteSpot", enabledValue, "suitespot_enabled", plugin_->cvarManager,
                                   plugin_->gameWrapper, "Enable/disable all SuiteSpot auto-loading and queuing features");
+    ImGui::SameLine(0, 20);
 
-    ImGui::NextColumn();
+    bool gameSpeedFixEnabled = plugin_->settingsSync ? plugin_->settingsSync->IsTrainingGameSpeedFixEnabled() : true;
+    if (UI::Helpers::CheckboxWithCVar("Fix Training Speed", gameSpeedFixEnabled, "suitespot_fix_training_gamespeed",
+                                      plugin_->cvarManager, plugin_->gameWrapper,
+                                      "Sync in-game training speed with sv_soccar_gamespeed in training playlists.")) {
+        LOG("Fix Training Game Speed toggled to {}", gameSpeedFixEnabled ? "ON" : "OFF");
+    }
 
-    // Col 2: Map Mode
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("Map Mode:");
-    ImGui::SameLine();
-
-    const char* mapLabels[] = {"Freeplay", "Training", "Workshop"};
+    // Right-align map mode CheckButtons
+    const char* modeLabels[] = {"Freeplay", "Training", "Workshop"};
+    float modeGroupW = ImGui::CalcTextSize("Mode:").x + ImGui::GetStyle().ItemSpacing.x;
     for (int i = 0; i < 3; i++) {
-        if (i > 0) ImGui::SameLine(0, UI::SettingsUI::MAP_TYPE_RADIO_BUTTON_SPACING);
-        if (ImGui::RadioButton(mapLabels[i], mapTypeValue == i)) {
+        modeGroupW += ImGui::CalcTextSize(modeLabels[i]).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        if (i < 2) modeGroupW += 4.0f; // SameLine spacing between buttons
+    }
+    ImGui::SameLine(ImGui::GetContentRegionMax().x - modeGroupW - ImGui::GetStyle().WindowPadding.x);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Mode:");
+    ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x);
+
+    for (int i = 0; i < 3; i++) {
+        if (i > 0) ImGui::SameLine(0, 4);
+        bool active = (mapTypeValue == i);
+        if (active) {
+            ImGui::PushStyleColor(ImGuiCol_Button, UI::MAP_MODE_ACTIVE_COLOR);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::MAP_MODE_ACTIVE_COLOR);
+        }
+        if (ImGui::CheckButton(modeLabels[i], &active) && active) {
             mapTypeValue = i;
-            LOG("SuiteSpot UI: User switched Map Mode to {}", mapLabels[i]);
+            LOG("SuiteSpot UI: User switched Map Mode to {}", modeLabels[i]);
             UI::Helpers::SetCVarSafely("suitespot_map_type", mapTypeValue, plugin_->cvarManager, plugin_->gameWrapper);
         }
+        if (active) ImGui::PopStyleColor(2);
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Choose which map type loads after matches:\nFreeplay = Official | Training = Custom Packs | "
                           "Workshop = Modded Maps");
-    }
-
-    ImGui::Columns(1); // Reset
-    ImGui::Spacing();
-
-    bool gameSpeedFixEnabled = plugin_->settingsSync ? plugin_->settingsSync->IsTrainingGameSpeedFixEnabled() : true;
-    if (UI::Helpers::CheckboxWithCVar("Fix Training Game Speed", gameSpeedFixEnabled,
-                                      "suitespot_fix_training_gamespeed", plugin_->cvarManager, plugin_->gameWrapper,
-                                      "Sync in-game training speed with sv_soccar_gamespeed in training playlists.")) {
-        LOG("Fix Training Game Speed toggled to {}", gameSpeedFixEnabled ? "ON" : "OFF");
     }
 }
 
@@ -511,7 +542,7 @@ void SettingsUI::RenderMapSelectionTab(int mapTypeValue, std::string& currentFre
                                        int& delayFreeplaySecValue, int& delayTrainingSecValue,
                                        int& delayWorkshopSecValue, int& delayQueueSecValue)
 {
-    ImGui::TextUnformatted("Map Selection:");
+    DrawSectionHeader("Map Selection", ImGui::ColorConvertFloat4ToU32(UI::SECTION_HEADER_COLOR));
     ImGui::Spacing();
 
     if (mapTypeValue == 0) {
@@ -532,44 +563,36 @@ void SettingsUI::RenderFreeplayMode(std::string& currentFreeplayCode)
         plugin_->cvarManager->getCvar("suitespot_current_freeplay_code").setValue(currentFreeplayCode);
     }
 
-    // Find current selection index for display
+    // Find current selection index
     int currentIndex = 0;
-    if (!currentFreeplayCode.empty()) {
-        for (int i = 0; i < (int)RLMaps.size(); i++) {
-            if (RLMaps[i].code == currentFreeplayCode) {
-                currentIndex = i;
-                break;
-            }
+    for (int i = 0; i < (int)RLMaps.size(); i++) {
+        if (RLMaps[i].code == currentFreeplayCode) {
+            currentIndex = i;
+            break;
         }
     }
 
     const char* freeplayLabel = RLMaps.empty() ? "<none>" : RLMaps[currentIndex].name.c_str();
 
-    ImGui::Columns(2, "FreeplayCols", false);
-    ImGui::SetColumnWidth(0, 150.0f);
+    // Build names list for SearchableCombo
+    std::vector<std::string> mapNames;
+    mapNames.reserve(RLMaps.size());
+    for (const auto& m : RLMaps)
+        mapNames.push_back(m.name);
 
     ImGui::AlignTextToFramePadding();
-    ImGui::Text("Freeplay Map");
-    ImGui::NextColumn();
-
-    ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x, UI::SettingsUI::FREEPLAY_MAPS_DROPDOWN_WIDTH));
-    if (UI::Helpers::ComboWithTooltip("##FreeplayMap", freeplayLabel, "Select which stadium to load after matches", 0.0f)) {
-        ImGuiListClipper clipper;
-        clipper.Begin((int)RLMaps.size());
-        while (clipper.Step()) {
-            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
-                bool selected = (RLMaps[row].code == currentFreeplayCode);
-                if (ImGui::Selectable(RLMaps[row].name.c_str(), selected)) {
-                    currentFreeplayCode = RLMaps[row].code;
-                    LOG("SuiteSpot UI: User selected Freeplay map: {} ({})", RLMaps[row].name, currentFreeplayCode);
-                    plugin_->settingsSync->SetCurrentFreeplayCode(currentFreeplayCode);
-                    plugin_->cvarManager->getCvar("suitespot_current_freeplay_code").setValue(currentFreeplayCode);
-                }
-            }
+    ImGui::TextUnformatted("Freeplay Map:");
+    ImGui::SameLine(0, 8);
+    ImGui::SetNextItemWidth(UI::SettingsUI::FREEPLAY_MAPS_DROPDOWN_WIDTH);
+    if (ImGui::SearchableCombo("##FreeplayMap", &currentIndex, mapNames, freeplayLabel, "Search maps...")) {
+        if (currentIndex >= 0 && currentIndex < (int)RLMaps.size()) {
+            currentFreeplayCode = RLMaps[currentIndex].code;
+            LOG("SuiteSpot UI: User selected Freeplay map: {} ({})", RLMaps[currentIndex].name, currentFreeplayCode);
+            plugin_->settingsSync->SetCurrentFreeplayCode(currentFreeplayCode);
+            plugin_->cvarManager->getCvar("suitespot_current_freeplay_code").setValue(currentFreeplayCode);
         }
-        ImGui::EndCombo();
     }
-    ImGui::Columns(1);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Select which stadium loads after matches");
 }
 
 void SettingsUI::RenderTrainingMode(int trainingModeValue, std::string& currentTrainingCode)
@@ -647,17 +670,44 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
 
     // === LEFT PANEL: Map List ===
     if (ImGui::BeginChild("WorkshopMapList", ImVec2(leftWidth, UI::WorkshopBrowserUI::BROWSER_HEIGHT), true)) {
-        ImGui::TextDisabled("%d maps", (int)RLWorkshop.size());
+        // Filter input
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputTextWithHint("##WorkshopInstFilter", "Filter maps...", workshopInstalledFilterBuf,
+                                 sizeof(workshopInstalledFilterBuf));
+
+        // Build filter string (lowercase for case-insensitive match)
+        std::string filterStr = workshopInstalledFilterBuf;
+        std::transform(filterStr.begin(), filterStr.end(), filterStr.begin(), ::tolower);
+
+        // Count visible maps for header
+        int visibleCount = 0;
+        for (const auto& e : RLWorkshop) {
+            if (filterStr.empty()) {
+                visibleCount++;
+                continue;
+            }
+            std::string nl = e.name;
+            std::transform(nl.begin(), nl.end(), nl.begin(), ::tolower);
+            if (nl.find(filterStr) != std::string::npos) visibleCount++;
+        }
+        ImGui::TextDisabled(filterStr.empty() ? "%d maps" : "%d / %d maps", visibleCount, (int)RLWorkshop.size());
         ImGui::Separator();
 
         for (int i = 0; i < (int)RLWorkshop.size(); i++) {
             const auto& entry = RLWorkshop[i];
+
+            // Apply filter
+            if (!filterStr.empty()) {
+                std::string nameLower = entry.name;
+                std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
+                if (nameLower.find(filterStr) == std::string::npos) continue;
+            }
+
             bool isSelected = (i == selectedWorkshopIndex);
             bool isCurrentAutoLoad = (entry.filePath == currentWorkshopPath);
 
             ImGui::PushID(i);
 
-            // Show marker if this is the current auto-load selection
             if (isCurrentAutoLoad) {
                 ImGui::PushStyleColor(ImGuiCol_Text, UI::WorkshopBrowserUI::SELECTED_BADGE_COLOR);
                 ImGui::Text(">");
@@ -667,8 +717,6 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
 
             if (ImGui::Selectable(entry.name.c_str(), isSelected, ImGuiSelectableFlags_None)) {
                 selectedWorkshopIndex = i;
-                // FIX: Update CVar immediately when selection changes (not just on explicit button click)
-                // This synchronizes selectedWorkshopIndex with currentWorkshopPath so "Load Now" works
                 currentWorkshopPath = entry.filePath;
                 LOG("SuiteSpot UI: User selected Workshop map: {} ({})", entry.name, entry.filePath);
                 plugin_->settingsSync->SetCurrentWorkshopPath(entry.filePath);
@@ -685,10 +733,38 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
                     [p, path](GameWrapper* gw) { p->cvarManager->executeCommand("load_workshop \"" + path + "\""); },
                     0.0f);
                 statusMessage.ShowSuccess("Loading Workshop Map", 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
-                if (p->cvarManager) {
-                    p->cvarManager->executeCommand("togglemenu settings");
-                }
+                if (p->cvarManager) p->cvarManager->executeCommand("togglemenu settings");
             }
+
+            // Hand cursor on hover
+            if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+            // Right-click context menu
+            if (ImGui::BeginPopupContextItem("##WsCtx")) {
+                if (ImGui::MenuItem("Load Now")) {
+                    SuiteSpot* p = plugin_;
+                    std::string path = entry.filePath;
+                    p->gameWrapper->SetTimeout(
+                        [p, path](GameWrapper* gw) { p->cvarManager->executeCommand("load_workshop \"" + path + "\""); },
+                        0.0f);
+                    statusMessage.ShowSuccess("Loading Workshop Map", 2.0f,
+                                              UI::StatusMessage::DisplayMode::TimerWithFade);
+                    if (p->cvarManager) p->cvarManager->executeCommand("togglemenu settings");
+                }
+                if (!isCurrentAutoLoad && ImGui::MenuItem("Select for Post-Match")) {
+                    selectedWorkshopIndex = i;
+                    currentWorkshopPath = entry.filePath;
+                    plugin_->settingsSync->SetCurrentWorkshopPath(entry.filePath);
+                    if (auto cvar = plugin_->cvarManager->getCvar("suitespot_current_workshop_path"))
+                        cvar.setValue(entry.filePath);
+                    statusMessage.ShowSuccess("Workshop map selected", 2.0f,
+                                              UI::StatusMessage::DisplayMode::TimerWithFade);
+                }
+                ImGui::EndPopup();
+            }
+
+            // Scroll to selected on first appearance
+            if (isSelected && ImGui::IsWindowAppearing()) ImGui::SetScrollHereY(0.5f);
 
             ImGui::PopID();
         }
@@ -858,6 +934,16 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
         selectedQuickPickIndex = -1;
     }
 
+    // Sync selectedQuickPickIndex from selectedCode on first render (fixes empty right panel)
+    if (selectedQuickPickIndex < 0 && !selectedCode.empty()) {
+        for (int i = 0; i < (int)quickPicks.size(); i++) {
+            if (quickPicks[i] == selectedCode) {
+                selectedQuickPickIndex = i;
+                break;
+            }
+        }
+    }
+
     // Helper: resolve TrainingEntry* by code
     auto resolveEntry = [&](const std::string& code) -> const TrainingEntry* {
         const auto& packs = plugin_->trainingPackMgr ? plugin_->trainingPackMgr->GetPacks() : RLTraining;
@@ -923,6 +1009,39 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
                 if (p->cvarManager) p->cvarManager->executeCommand("togglemenu settings");
             }
 
+            // Hand cursor on hover
+            if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+            // Right-click context menu
+            if (ImGui::BeginPopupContextItem("##QpCtx")) {
+                if (ImGui::MenuItem("Load Now")) {
+                    SuiteSpot* p = plugin_;
+                    std::string c = code;
+                    if (p->usageTracker) p->usageTracker->IncrementLoadCount(c);
+                    p->gameWrapper
+                        ->SetTimeout([p, c](GameWrapper*) { p->cvarManager->executeCommand("load_training " + c); },
+                                     0.0f);
+                    statusMessage.ShowSuccess("Loading Training Pack", 2.0f,
+                                              UI::StatusMessage::DisplayMode::TimerWithFade);
+                    if (p->cvarManager) p->cvarManager->executeCommand("togglemenu settings");
+                }
+                if (!isPostMatch && ImGui::MenuItem("Select for Post-Match")) {
+                    selectedCode = code;
+                    plugin_->settingsSync->SetQuickPicksSelected(code);
+                    plugin_->cvarManager->getCvar("suitespot_quickpicks_selected").setValue(code);
+                    statusMessage.ShowSuccess("Pack selected for post-match", 2.0f,
+                                              UI::StatusMessage::DisplayMode::TimerWithFade);
+                }
+                if (ImGui::MenuItem("Copy Code")) {
+                    ImGui::SetClipboardText(code.c_str());
+                    statusMessage.ShowSuccess("Code copied!", 1.5f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                }
+                ImGui::EndPopup();
+            }
+
+            // Scroll to selected item on first appear
+            if (isHighlighted && ImGui::IsWindowAppearing()) ImGui::SetScrollHereY(0.5f);
+
             ImGui::PopID();
         }
     }
@@ -966,6 +1085,9 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
             ImGui::PushStyleColor(ImGuiCol_Text, UI::QuickPicksUI::PACK_NAME_COLOR);
             ImGui::TextWrapped("%s", name.c_str());
             ImGui::PopStyleColor();
+
+            // Pack code (copyable hint)
+            ImGui::TextDisabled("Code: %s", code.c_str());
 
             // Creator
             if (!creator.empty()) {
@@ -1038,6 +1160,13 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Load this training pack immediately");
             }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Copy Code", ImVec2(0, 26))) {
+                ImGui::SetClipboardText(code.c_str());
+                statusMessage.ShowSuccess("Code copied!", 1.5f, UI::StatusMessage::DisplayMode::TimerWithFade);
+            }
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Copy pack code: %s", code.c_str());
 
         } else {
             ImGui::TextDisabled("Select a pack from the list");
@@ -1194,23 +1323,26 @@ void SettingsUI::RenderWorkshopBrowserTab()
         pathInit = true;
     }
 
-    // Download destination path — full width on its own line
-    ImGui::Text("Download to:");
-    ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputText("##WorkshopPath", workshopDownloadPathBuf, IM_ARRAYSIZE(workshopDownloadPathBuf));
-    RenderTextureCheck();
+    // Download settings — collapsed by default to save space
+    if (ImGui::CollapsingHeader("Download Settings")) {
+        ImGui::Indent();
+        ImGui::Text("Download to:");
+        ImGui::SetNextItemWidth(-1.0f);
+        ImGui::InputText("##WorkshopPath", workshopDownloadPathBuf, IM_ARRAYSIZE(workshopDownloadPathBuf));
+        RenderTextureCheck();
 
-    ImGui::SameLine();
-    bool autoDl = plugin_->settingsSync->IsAutoDownloadTextures();
-    if (ImGui::Checkbox("Auto-Check on Launch", &autoDl)) {
-        UI::Helpers::SetCVarSafely("suitespot_auto_download_textures", autoDl ? 1 : 0, plugin_->cvarManager,
-                                   plugin_->gameWrapper);
+        ImGui::SameLine();
+        bool autoDl = plugin_->settingsSync->IsAutoDownloadTextures();
+        if (ImGui::Checkbox("Auto-Check on Launch", &autoDl)) {
+            UI::Helpers::SetCVarSafely("suitespot_auto_download_textures", autoDl ? 1 : 0, plugin_->cvarManager,
+                                       plugin_->gameWrapper);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Automatically check for and download missing textures when the game starts.");
+        }
+        ImGui::Unindent();
+        ImGui::Spacing();
     }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Automatically check for and download missing textures when the game starts.");
-    }
-
-    ImGui::Spacing();
 
     // API Search — fetches from RLMAPS; input width leaves room for Search button
     ImGui::Text("Search Maps:");
@@ -1218,8 +1350,8 @@ void SettingsUI::RenderWorkshopBrowserTab()
         float searchBtnW = ImGui::CalcTextSize("Search").x + ImGui::GetStyle().FramePadding.x * 2.0f;
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - searchBtnW - ImGui::GetStyle().ItemSpacing.x);
     }
-    bool enterPressed = ImGui::InputText("##WorkshopSearch", workshopSearchBuf, IM_ARRAYSIZE(workshopSearchBuf),
-                                         ImGuiInputTextFlags_EnterReturnsTrue);
+    bool enterPressed = ImGui::InputTextWithHint("##WorkshopSearch", "Search workshop maps...", workshopSearchBuf,
+                                                 IM_ARRAYSIZE(workshopSearchBuf), ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
 
     if ((ImGui::Button("Search") || enterPressed) && strlen(workshopSearchBuf) > 0) {
@@ -1251,7 +1383,8 @@ void SettingsUI::RenderWorkshopBrowserTab()
                           : -1.0f;
             ImGui::SetNextItemWidth(w);
         }
-        ImGui::InputText("##LocalFilter", localFilterBuf, IM_ARRAYSIZE(localFilterBuf));
+        ImGui::InputTextWithHint("##LocalFilter", "Filter & rank by name...", localFilterBuf,
+                                 IM_ARRAYSIZE(localFilterBuf));
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Type to filter and rank results by relevance. Closer matches appear first.");
         if (strlen(localFilterBuf) > 0) {

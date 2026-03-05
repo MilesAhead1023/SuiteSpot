@@ -84,7 +84,12 @@ class SettingsUI
     std::string lastSelectedWorkshopPath; // Track path to detect changes
 
     // Quick Picks two-panel layout state
-    int selectedQuickPickIndex = -1; // Currently highlighted in left panel
+    int selectedQuickPickIndex = -1;       // Currently highlighted in left panel
+    bool scrollToSelectedQuickPick = true; // Scroll to selection on first appear
+
+    // Workshop installed maps filter
+    char workshopInstalledFilterBuf[128] = {0};
+    bool scrollToSelectedWorkshop = true; // Scroll to selection on first appear
 
     // Workshop browser (RLMAPS) state
     int selectedBrowserIndex = -1;                   // Indexes into displayResultList
