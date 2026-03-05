@@ -656,6 +656,27 @@ void SuiteSpot::SetImGuiContext(uintptr_t ctx)
                 });
             }
         }
+
+        // Load UI font: Roboto-Medium 14px + FA5 Solid icons merged in (glyph range F000-F8D9)
+        if (!uiFont) {
+            auto gui = gameWrapper->GetGUIManager();
+            uiFont = gui.GetFont("suitespot_roboto_14");
+            if (!uiFont) {
+                gameWrapper->Execute([this](GameWrapper* gw) {
+                    auto gui = gw->GetGUIManager();
+                    // Base font: Roboto Medium at 14px
+                    auto [r1, roboto] = gui.LoadFont("suitespot_roboto_14", "Roboto-Medium.ttf", 14);
+                    if (r1 == 2 && roboto) uiFont = roboto;
+                    // Merge FA5 Solid icons into Roboto (must immediately follow base font load)
+                    static ImFontConfig fa_cfg;
+                    fa_cfg.MergeMode = true;
+                    fa_cfg.PixelSnapH = true;
+                    fa_cfg.GlyphMinAdvanceX = 13.0f;
+                    static const ImWchar fa_ranges[] = {0xf000, 0xf8d9, 0}; // FA5 Solid range
+                    gui.LoadFont("suitespot_fa_solid_14", "fa-solid-900.ttf", 14, &fa_cfg, fa_ranges);
+                });
+            }
+        }
     }
 }
 

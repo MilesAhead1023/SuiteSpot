@@ -15,6 +15,7 @@
 
 #include "IMGUI/imguivariouscontrols.h"
 #include "IMGUI/imgui_searchablecombo.h"
+#include "IMGUI/IconsFontAwesome5.h"
 
 #include <algorithm>
 #include <fstream>
@@ -84,7 +85,13 @@ void SettingsUI::RenderMainSettingsWindow()
     ImGui::PushStyleColor(ImGuiCol_PopupBg, UI::POPUP_BG_COLOR);
     ImGui::PushStyleColor(ImGuiCol_NavHighlight, UI::NAV_HIGHLIGHT_COLOR);
 
-    ImGui::SetWindowFontScale(UI::FONT_SCALE);
+    // Lazy-resolve uiFont (queued async in SetImGuiContext; available after first atlas build)
+    if (!plugin_->uiFont) {
+        auto gui = plugin_->gameWrapper->GetGUIManager();
+        plugin_->uiFont = gui.GetFont("suitespot_roboto_14");
+    }
+    ImGui::PushFont(plugin_->uiFont); // null = default font; replaced by Roboto+FA5 once loaded
+    ImGui::SetWindowFontScale(plugin_->uiFont ? 1.0f : UI::FONT_SCALE);
 
     // Header with metadata and Load Now button
     ImGui::BeginGroup();
@@ -243,6 +250,8 @@ void SettingsUI::RenderMainSettingsWindow()
         float sbH = ImGui::GetTextLineHeight() + ImGui::GetStyle().WindowPadding.y * 2.0f + 2.0f;
         ImGui::BeginChildFrame(ImGui::GetID("##StatusBar"), ImVec2(-1.0f, sbH));
         {
+            ImGui::TextColored(accent, ICON_FA_CIRCLE);
+            ImGui::SameLine(0, 5);
             ImGui::TextColored(green, "Mode: %s", modeNames[mapTypeValue]);
 
             ImGui::SameLine(0, 10);
@@ -298,7 +307,7 @@ void SettingsUI::RenderMainSettingsWindow()
     if (ImGui::BeginTabBar("SuiteSpotTabs", ImGuiTabBarFlags_None)) {
 
         // ===== MAP SELECT TAB =====
-        if (ImGui::BeginTabItem("Map Select")) {
+        if (ImGui::BeginTabItem(ICON_FA_MAP " Map Select")) {
             if (enabledValue) {
                 ImGui::Spacing();
 
@@ -364,7 +373,7 @@ void SettingsUI::RenderMainSettingsWindow()
         }
 
         // ===== LOADOUT MANAGEMENT TAB =====
-        if (ImGui::BeginTabItem("Loadout Management")) {
+        if (ImGui::BeginTabItem(ICON_FA_LIST " Loadout")) {
             if (enabledValue) {
                 if (plugin_->loadoutUI) {
                     plugin_->loadoutUI->RenderLoadoutControls();
@@ -377,11 +386,11 @@ void SettingsUI::RenderMainSettingsWindow()
         }
 
         // ===== HOTKEYS TAB =====
-        if (ImGui::BeginTabItem("Hotkeys")) {
+        if (ImGui::BeginTabItem(ICON_FA_KEYBOARD " Hotkeys")) {
             ImGui::Spacing();
             DrawSectionHeader("Keyboard Shortcuts", ImGui::ColorConvertFloat4ToU32(UI::SECTION_HEADER_COLOR));
             ImGui::Spacing();
-            ImGui::TextDisabled("Click [o] to capture a key press, or type the UE3 name manually.");
+            ImGui::TextDisabled("Click " ICON_FA_CIRCLE " to capture a key press, or type the UE3 name manually.");
             ImGui::TextDisabled("Key 1 = trigger.  Key 2 = required held modifier.  Both must be set.");
             ImGui::TextDisabled("Xbox buttons are captured automatically.");
             ImGui::Spacing();
@@ -423,8 +432,8 @@ void SettingsUI::RenderMainSettingsWindow()
                         if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tip);
                     }
                     ImGui::SameLine(0, 2);
-                    ImGui::PushID(slot);                           // Unique ID per slot within the row
-                    if (ImGui::SmallButton(cap ? "[x]" : "[o]")) { // stop / record
+                    ImGui::PushID(slot);                                           // Unique ID per slot within the row
+                    if (ImGui::SmallButton(cap ? ICON_FA_STOP : ICON_FA_CIRCLE)) { // stop / record
                         plugin_->captureRow = cap ? -1 : i;
                         plugin_->captureSlot = slot;
                     }
@@ -444,7 +453,7 @@ void SettingsUI::RenderMainSettingsWindow()
 
                 // Col 1: [Key1 slot]  +  [Key2 slot]
                 renderSlot(0, row.key1CVar, "##k1", "##cb1", "X##k1x",
-                           "Trigger key — click [o] to capture, or type UE3 name");
+                           "Trigger key - click " ICON_FA_CIRCLE " to capture, or type UE3 name");
                 ImGui::SameLine(0, 6);
                 ImGui::AlignTextToFramePadding();
                 ImGui::TextUnformatted("+");
@@ -473,7 +482,7 @@ void SettingsUI::RenderMainSettingsWindow()
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::Spacing();
-            if (ImGui::Button("Save Hotkeys")) plugin_->cvarManager->executeCommand("writeconfig", false);
+            if (ImGui::Button(ICON_FA_SAVE " Save Hotkeys")) plugin_->cvarManager->executeCommand("writeconfig", false);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Persist hotkey settings to config file");
             ImGui::EndTabItem();
         }
@@ -485,6 +494,7 @@ void SettingsUI::RenderMainSettingsWindow()
         ImGui::PopStyleVar();
     }
 
+    ImGui::PopFont();
     ImGui::PopStyleColor(25); // all color pushes
     ImGui::PopStyleVar(14);   // all style var pushes
 }
@@ -504,7 +514,7 @@ void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue)
     }
 
     // Right-align map mode CheckButtons
-    const char* modeLabels[] = {"Freeplay", "Training", "Workshop"};
+    const char* modeLabels[] = {ICON_FA_GLOBE " Freeplay", ICON_FA_GRADUATION_CAP " Training", ICON_FA_COGS " Workshop"};
     float modeGroupW = ImGui::CalcTextSize("Mode:").x + ImGui::GetStyle().ItemSpacing.x;
     for (int i = 0; i < 3; i++) {
         modeGroupW += ImGui::CalcTextSize(modeLabels[i]).x + ImGui::GetStyle().FramePadding.x * 2.0f;
@@ -903,7 +913,7 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
         ImGui::SetTooltip("Your most-used training packs based on load history");
     }
     ImGui::SameLine();
-    if (ImGui::Button("Open Pack Browser", ImVec2(0, 0))) {
+    if (ImGui::Button(ICON_FA_SEARCH " Open Pack Browser", ImVec2(0, 0))) {
         SuiteSpot* p = plugin_;
         p->gameWrapper
             ->SetTimeout([p](GameWrapper* gw) { p->cvarManager->executeCommand("togglemenu suitespot_browser"); }, 0.0f);
@@ -1160,7 +1170,7 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
             }
 
             ImGui::SameLine();
-            if (ImGui::Button("Copy Code", ImVec2(0, 26))) {
+            if (ImGui::Button(ICON_FA_COPY " Copy Code", ImVec2(0, 26))) {
                 ImGui::SetClipboardText(code.c_str());
                 statusMessage.ShowSuccess("Code copied!", 1.5f, UI::StatusMessage::DisplayMode::TimerWithFade);
             }
@@ -1577,7 +1587,7 @@ void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
             // Download button
             bool hasReleases = !mapResult.releases.empty();
             if (hasReleases) {
-                if (ImGui::Button("Download", ImVec2(0, 26))) {
+                if (ImGui::Button(ICON_FA_DOWNLOAD " Download", ImVec2(0, 26))) {
                     if (!plugin_->workshopDownloader->RLMAPS_IsDownloadingWorkshop && fs::exists(mapspath)) {
                         ImGui::OpenPopup("Releases");
                     } else if (!fs::exists(mapspath)) {

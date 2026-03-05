@@ -150,6 +150,7 @@ class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
     float officialTrainingGameSpeed = 1.0f;
     uintptr_t imgui_ctx = 0;
     ImFont* clockFont = nullptr;
+    ImFont* uiFont = nullptr; // Roboto-Medium 14px with FA5 Solid icons merged in
     std::atomic<bool> isRenderingSettings{false};
     std::thread textureDownloadThread; // Managed texture download thread
 
