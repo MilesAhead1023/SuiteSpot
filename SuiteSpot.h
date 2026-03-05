@@ -161,6 +161,10 @@ class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
     int captureRow = -1;
     int captureSlot = 0;
 
+    // Tracks currently-held key names (UE3 strings, e.g. "XboxTypeS_X") via HandleKeyPress hook.
+    // Updated on every press/release event — never polled. Used for combo key checks in notifiers.
+    std::set<std::string> heldKeys;
+
     // Hotkey handlers
     void ShowToastForAction(const std::string& actionName);
 };

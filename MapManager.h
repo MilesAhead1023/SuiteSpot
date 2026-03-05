@@ -69,6 +69,11 @@ class MapManager
     int GetCurrentTrainingIndex() const { return currentTrainingIndex; }
     int GetCurrentWorkshopIndex() const { return currentWorkshopIndex; }
 
+    // Get the actual code/path for the current selection (use after CycleMap)
+    std::string GetCurrentFreeplayCode() const;
+    std::string GetCurrentTrainingCode() const;
+    std::string GetCurrentWorkshopPath() const;
+
   private:
     std::filesystem::path dataRoot;
 

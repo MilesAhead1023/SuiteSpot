@@ -12,6 +12,10 @@ CompileFlags:
     - -D_CONSOLE
 
     # BakkesMod SDK headers (via WSL2 path to Windows AppData)
+    # NOTE FOR AI/FUTURE SESSIONS: These are machine-specific paths for WSL2.
+    # The authoritative SDK path is resolved by BakkesMod.props via Windows registry:
+    # HKEY_CURRENT_USER\Software\BakkesMod\AppPath
+    # If paths fail, check BakkesMod.props and update both this file and the WSL mount path.
     - -I/mnt/c/Users/bmile/AppData/Roaming/bakkesmod/bakkesmod/bakkesmodsdk/include
 
     # vcpkg x64-windows includes

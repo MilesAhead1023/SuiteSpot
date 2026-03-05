@@ -427,3 +427,24 @@ void MapManager::CycleMap(bool forward)
     }
     // Caller (SuiteSpot hotkey handler) will update the appropriate CVar
 }
+
+std::string MapManager::GetCurrentFreeplayCode() const
+{
+    if (!RLMaps.empty() && currentFreeplayIndex >= 0 && currentFreeplayIndex < (int)RLMaps.size())
+        return RLMaps[currentFreeplayIndex].code;
+    return "";
+}
+
+std::string MapManager::GetCurrentTrainingCode() const
+{
+    if (!RLTraining.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)RLTraining.size())
+        return RLTraining[currentTrainingIndex].code;
+    return "";
+}
+
+std::string MapManager::GetCurrentWorkshopPath() const
+{
+    if (!RLWorkshop.empty() && currentWorkshopIndex >= 0 && currentWorkshopIndex < (int)RLWorkshop.size())
+        return RLWorkshop[currentWorkshopIndex].filePath;
+    return "";
+}

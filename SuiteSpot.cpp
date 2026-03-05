@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <cctype>
 #include <unordered_set>
-#include <unordered_map>
 #include <random>
 #include <iomanip>
 #include <sstream>
@@ -260,228 +259,134 @@ void SuiteSpot::LoadHooks()
         "ss_heal_current_pack", [this](std::vector<std::string> args) { TryHealCurrentPack(gameWrapper.get()); },
         "Manually heal the currently loaded training pack", PERMISSION_ALL);
 
-    // Maps UE3/BakkesMod key name strings to Windows Virtual Key codes for use with IsKeyPressed().
-    // Keyboard entries use standard WinUser.h VK codes.
-    // XboxTypeS_* entries use Windows 10 VK_GAMEPAD_* codes (0xC3-0xD2); effectiveness depends on
-    // whether BakkesMod's IsKeyPressed honours those codes in a Win32 context.
-    // Raw integers (e.g. "65") are also accepted.
-    auto KeyNameToVK = [](const std::string& name) -> int {
-        if (name.empty()) return 0;
-        try {
-            return std::stoi(name);
-        } catch (...) {}
-        static const std::unordered_map<std::string, int> table = {
-            // Modifier keys
-            {"LeftShift", 0x10},
-            {"RightShift", 0x10},
-            {"LeftControl", 0x11},
-            {"RightControl", 0x11},
-            {"LeftAlt", 0x12},
-            {"RightAlt", 0x12},
-            // Letters
-            {"A", 0x41},
-            {"B", 0x42},
-            {"C", 0x43},
-            {"D", 0x44},
-            {"E", 0x45},
-            {"F", 0x46},
-            {"G", 0x47},
-            {"H", 0x48},
-            {"I", 0x49},
-            {"J", 0x4A},
-            {"K", 0x4B},
-            {"L", 0x4C},
-            {"M", 0x4D},
-            {"N", 0x4E},
-            {"O", 0x4F},
-            {"P", 0x50},
-            {"Q", 0x51},
-            {"R", 0x52},
-            {"S", 0x53},
-            {"T", 0x54},
-            {"U", 0x55},
-            {"V", 0x56},
-            {"W", 0x57},
-            {"X", 0x58},
-            {"Y", 0x59},
-            {"Z", 0x5A},
-            // Digits (UE3 spells them out)
-            {"Zero", 0x30},
-            {"One", 0x31},
-            {"Two", 0x32},
-            {"Three", 0x33},
-            {"Four", 0x34},
-            {"Five", 0x35},
-            {"Six", 0x36},
-            {"Seven", 0x37},
-            {"Eight", 0x38},
-            {"Nine", 0x39},
-            // Function keys
-            {"F1", 0x70},
-            {"F2", 0x71},
-            {"F3", 0x72},
-            {"F4", 0x73},
-            {"F5", 0x74},
-            {"F6", 0x75},
-            {"F7", 0x76},
-            {"F8", 0x77},
-            {"F9", 0x78},
-            {"F10", 0x79},
-            {"F11", 0x7A},
-            {"F12", 0x7B},
-            // Numpad
-            {"NumPadZero", 0x60},
-            {"NumPadOne", 0x61},
-            {"NumPadTwo", 0x62},
-            {"NumPadThree", 0x63},
-            {"NumPadFour", 0x64},
-            {"NumPadFive", 0x65},
-            {"NumPadSix", 0x66},
-            {"NumPadSeven", 0x67},
-            {"NumPadEight", 0x68},
-            {"NumPadNine", 0x69},
-            {"Multiply", 0x6A},
-            {"Add", 0x6B},
-            {"Subtract", 0x6D},
-            {"Decimal", 0x6E},
-            {"Divide", 0x6F},
-            // Navigation / special
-            {"SpaceBar", 0x20},
-            {"Enter", 0x0D},
-            {"Escape", 0x1B},
-            {"Tab", 0x09},
-            {"BackSpace", 0x08},
-            {"Delete", 0x2E},
-            {"Insert", 0x2D},
-            {"Home", 0x24},
-            {"End", 0x23},
-            {"PageUp", 0x21},
-            {"PageDown", 0x22},
-            {"Left", 0x25},
-            {"Up", 0x26},
-            {"Right", 0x27},
-            {"Down", 0x28},
-            // Xbox controller — Windows 10 VK_GAMEPAD_* codes
-            {"XboxTypeS_A", 0xC3},
-            {"XboxTypeS_B", 0xC4},
-            {"XboxTypeS_X", 0xC5},
-            {"XboxTypeS_Y", 0xC6},
-            {"XboxTypeS_RightBumper", 0xC7},
-            {"XboxTypeS_LeftBumper", 0xC8},
-            {"XboxTypeS_LeftTrigger", 0xC9},
-            {"XboxTypeS_RightTrigger", 0xCA},
-            {"XboxTypeS_DPad_Up", 0xCB},
-            {"XboxTypeS_DPad_Down", 0xCC},
-            {"XboxTypeS_DPad_Left", 0xCD},
-            {"XboxTypeS_DPad_Right", 0xCE},
-            {"XboxTypeS_Start", 0xCF},
-            {"XboxTypeS_Back", 0xD0},
-            {"XboxTypeS_LeftThumbstick", 0xD1},
-            {"XboxTypeS_RightThumbstick", 0xD2},
-        };
-        auto it = table.find(name);
-        return it != table.end() ? it->second : 0;
-    };
-
     // Hotkey action notifiers — fired by BakkesMod on key1 key-down via setBind in SettingsSync.
-    // If key2 is configured, IsKeyPressed(key2_vk) must also be true (combo check, not polling).
+    // If key2 is configured, it must be held (tracked in heldKeys via HandleKeyPress hook).
     cvarManager->registerNotifier(
         "ss_cycle_map_mode_fwd",
-        [this, KeyNameToVK](std::vector<std::string> args) {
+        [this](std::vector<std::string> args) {
             if (!settingsSync || !mapManager) return;
             auto key2 = settingsSync->GetHotkeyMapModeFwdKey2();
             if (!key2.empty()) {
-                int vk = KeyNameToVK(key2);
-                bool isPressed = gameWrapper->IsKeyPressed(vk);
-                LOG("Hotkey Trigger: ss_cycle_map_mode_fwd triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
-                    isPressed ? "Yes" : "No");
-                if (vk == 0 || !isPressed) return;
+                bool held = heldKeys.count(key2) > 0;
+                LOG("Hotkey Trigger: ss_cycle_map_mode_fwd triggered. Combo key: {}, Held: {}", key2,
+                    held ? "Yes" : "No");
+                if (!held) return;
             } else {
                 LOG("Hotkey Trigger: ss_cycle_map_mode_fwd triggered. No combo key set.");
             }
             ShowToastForAction("Switched map mode forward");
             mapManager->CycleMapMode(true);
+            cvarManager->getCvar("suitespot_map_type").setValue(mapManager->GetCurrentMapModeIndex());
         },
         "SuiteSpot: Cycle map mode forward", PERMISSION_ALL);
 
     cvarManager->registerNotifier(
         "ss_cycle_map_mode_bk",
-        [this, KeyNameToVK](std::vector<std::string> args) {
+        [this](std::vector<std::string> args) {
             if (!settingsSync || !mapManager) return;
             auto key2 = settingsSync->GetHotkeyMapModeBkKey2();
             if (!key2.empty()) {
-                int vk = KeyNameToVK(key2);
-                bool isPressed = gameWrapper->IsKeyPressed(vk);
-                LOG("Hotkey Trigger: ss_cycle_map_mode_bk triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
-                    isPressed ? "Yes" : "No");
-                if (vk == 0 || !isPressed) return;
+                bool held = heldKeys.count(key2) > 0;
+                LOG("Hotkey Trigger: ss_cycle_map_mode_bk triggered. Combo key: {}, Held: {}", key2, held ? "Yes" : "No");
+                if (!held) return;
             }
             ShowToastForAction("Switched map mode backward");
             mapManager->CycleMapMode(false);
+            cvarManager->getCvar("suitespot_map_type").setValue(mapManager->GetCurrentMapModeIndex());
         },
         "SuiteSpot: Cycle map mode backward", PERMISSION_ALL);
 
     cvarManager->registerNotifier(
         "ss_cycle_map_fwd",
-        [this, KeyNameToVK](std::vector<std::string> args) {
+        [this](std::vector<std::string> args) {
             if (!settingsSync || !mapManager) return;
             auto key2 = settingsSync->GetHotkeyCycleMapFwdKey2();
             if (!key2.empty()) {
-                int vk = KeyNameToVK(key2);
-                bool isPressed = gameWrapper->IsKeyPressed(vk);
-                LOG("Hotkey Trigger: ss_cycle_map_fwd triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
-                    isPressed ? "Yes" : "No");
-                if (vk == 0 || !isPressed) return;
+                bool held = heldKeys.count(key2) > 0;
+                LOG("Hotkey Trigger: ss_cycle_map_fwd triggered. Combo key: {}, Held: {}", key2, held ? "Yes" : "No");
+                if (!held) return;
             }
             ShowToastForAction("Next map");
             mapManager->CycleMap(true);
+            int mode = mapManager->GetCurrentMapModeIndex();
+            if (mode == 0)
+                cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
+            else if (mode == 1)
+                cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
+            else if (mode == 2)
+                cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
         },
         "SuiteSpot: Cycle map forward", PERMISSION_ALL);
 
     cvarManager->registerNotifier(
         "ss_cycle_map_bk",
-        [this, KeyNameToVK](std::vector<std::string> args) {
+        [this](std::vector<std::string> args) {
             if (!settingsSync || !mapManager) return;
             auto key2 = settingsSync->GetHotkeyCycleMapBkKey2();
             if (!key2.empty()) {
-                int vk = KeyNameToVK(key2);
-                bool isPressed = gameWrapper->IsKeyPressed(vk);
-                LOG("Hotkey Trigger: ss_cycle_map_bk triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
-                    isPressed ? "Yes" : "No");
-                if (vk == 0 || !isPressed) return;
+                bool held = heldKeys.count(key2) > 0;
+                LOG("Hotkey Trigger: ss_cycle_map_bk triggered. Combo key: {}, Held: {}", key2, held ? "Yes" : "No");
+                if (!held) return;
             }
             ShowToastForAction("Previous map");
             mapManager->CycleMap(false);
+            int mode = mapManager->GetCurrentMapModeIndex();
+            if (mode == 0)
+                cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
+            else if (mode == 1)
+                cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
+            else if (mode == 2)
+                cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
         },
         "SuiteSpot: Cycle map backward", PERMISSION_ALL);
 
     cvarManager->registerNotifier(
         "ss_load_now",
-        [this, KeyNameToVK](std::vector<std::string> args) {
+        [this](std::vector<std::string> args) {
             if (!settingsSync) return;
             auto key2 = settingsSync->GetHotkeyLoadNowKey2();
             if (!key2.empty()) {
-                int vk = KeyNameToVK(key2);
-                bool isPressed = gameWrapper->IsKeyPressed(vk);
-                LOG("Hotkey Trigger: ss_load_now triggered. Combo key: {} (VK: {}), Pressed: {}", key2, vk,
-                    isPressed ? "Yes" : "No");
-                if (vk == 0 || !isPressed) return;
+                bool held = heldKeys.count(key2) > 0;
+                LOG("Hotkey Trigger: ss_load_now triggered. Combo key: {}, Held: {}", key2, held ? "Yes" : "No");
+                if (!held) return;
             }
             ShowToastForAction("Loading current map");
-            // TODO: Call AutoLoadFeature to load current map
+            int mapType = settingsSync->GetMapType();
+            std::string cmd;
+            if (mapType == 0) {
+                auto code = settingsSync->GetCurrentFreeplayCode();
+                if (!code.empty()) cmd = "load_freeplay " + code;
+            } else if (mapType == 1) {
+                auto code = settingsSync->GetCurrentTrainingCode();
+                if (!code.empty()) cmd = "load_training " + code;
+            } else if (mapType == 2) {
+                auto path = settingsSync->GetCurrentWorkshopPath();
+                if (!path.empty()) cmd = "load_workshop \"" + path + "\"";
+            }
+            if (!cmd.empty()) {
+                gameWrapper->Execute([this, cmd](GameWrapper*) { cvarManager->executeCommand(cmd); });
+            }
         },
         "SuiteSpot: Load current map immediately", PERMISSION_ALL);
 
-    // Raw input hook for hotkey capture (non-polling)
+    // Raw input hook — tracks held keys for combo checks AND handles capture UI.
+    // Fires on every key press/release; never polls.
     gameWrapper->HookEventWithCaller<ActorWrapper>("Function TAGame.GameViewportClient_TA.HandleKeyPress",
                                                    [this](ActorWrapper caller, void* params, std::string eventName) {
-                                                       if (captureRow < 0) return;
-
                                                        auto p = static_cast<HandleKeyPressParams*>(params);
-                                                       if (p->EventType != 0) return; // 0 = IE_Pressed
 
                                                        std::string keyName = gameWrapper->GetFNameByIndex(p->KeyIndex);
                                                        if (keyName.empty() || keyName == "None") return;
+
+                                                       // Maintain heldKeys set for combo checks in notifiers.
+                                                       if (p->EventType == 0) // IE_Pressed
+                                                           heldKeys.insert(keyName);
+                                                       else if (p->EventType == 1) // IE_Released
+                                                           heldKeys.erase(keyName);
+
+                                                       // Hotkey capture UI — only active when captureRow >= 0.
+                                                       if (captureRow < 0) return;
+                                                       if (p->EventType != 0) return; // capture on press only
 
                                                        LOG("Hotkey Capture: Detected key {} (Index: {}, Gamepad: {})",
                                                            keyName, p->KeyIndex, p->bGamepad);
@@ -494,7 +399,7 @@ void SuiteSpot::LoadHooks()
                                                        }
 
                                                        // Valid key captured - map to target CVar
-                                                       if (captureRow >= 0 && captureRow < 5) {
+                                                       if (captureRow < 5) {
                                                            const auto& row = UI::SettingsUI::HOTKEY_ROWS[captureRow];
                                                            const char* cvarName = (captureSlot == 0) ? row.key1CVar
                                                                                                      : row.key2CVar;
@@ -756,7 +661,7 @@ void SuiteSpot::Render()
     ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(imgui_ctx));
 
     // Render toast notification (hotkey feedback)
-    hotKeyToast.Render(ImGui::GetIO().DeltaTime);
+    hotKeyToast.RenderOverlay(ImGui::GetIO().DeltaTime);
 
     // Note: TrainingPackUI is a PluginWindow registered with BakkesMod,
     // so it's rendered automatically by the framework. No need to call it here.
