@@ -295,7 +295,7 @@ void SettingsUI::RenderMainSettingsWindow()
                 ImGui::AlignTextToFramePadding();
                 ImGui::Text("Queue Delay");
                 ImGui::NextColumn();
-                ImGui::SetNextItemWidth(-1);
+                ImGui::SetNextItemWidth(UI::SettingsUI::DELAY_QUEUE_INPUT_WIDTH);
                 UI::Helpers::InputIntWithRange("##QueueDelay", delayQueueSecValue,
                                                UI::SettingsUI::DELAY_QUEUE_MIN_SECONDS,
                                                UI::SettingsUI::DELAY_QUEUE_MAX_SECONDS, 0.0f,
@@ -321,7 +321,7 @@ void SettingsUI::RenderMainSettingsWindow()
                 ImGui::AlignTextToFramePadding();
                 ImGui::Text("Map Delay");
                 ImGui::NextColumn();
-                ImGui::SetNextItemWidth(-1);
+                ImGui::SetNextItemWidth(UI::SettingsUI::DELAY_QUEUE_INPUT_WIDTH);
                 UI::Helpers::InputIntWithRange("##MapDelay", *currentMapDelayValue, 0, 300, 0.0f, currentMapDelayCVar,
                                                plugin_->cvarManager, plugin_->gameWrapper, mapDelayTooltip, nullptr);
                 ImGui::NextColumn();
@@ -552,9 +552,8 @@ void SettingsUI::RenderFreeplayMode(std::string& currentFreeplayCode)
     ImGui::Text("Freeplay Map");
     ImGui::NextColumn();
 
-    ImGui::SetNextItemWidth(-1);
-    if (UI::Helpers::ComboWithTooltip("##FreeplayMap", freeplayLabel, "Select which stadium to load after matches",
-                                      -1.0f)) {
+    ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x, UI::SettingsUI::FREEPLAY_MAPS_DROPDOWN_WIDTH));
+    if (UI::Helpers::ComboWithTooltip("##FreeplayMap", freeplayLabel, "Select which stadium to load after matches", 0.0f)) {
         ImGuiListClipper clipper;
         clipper.Begin((int)RLMaps.size());
         while (clipper.Step()) {
