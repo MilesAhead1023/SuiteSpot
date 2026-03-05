@@ -10,6 +10,7 @@ docs/verification-results/
 docs/gui-editor/
 docs/development/
 docs/LOGIC_MAP.md
+docs/env-setup-prompt.md
 
 # User-specific files
 *.rsuser
