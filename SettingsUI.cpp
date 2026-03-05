@@ -535,17 +535,6 @@ void SettingsUI::RenderFreeplayMode(std::string& currentFreeplayCode)
 void SettingsUI::RenderTrainingMode(int trainingModeValue, std::string& currentTrainingCode)
 {
     RenderSinglePackMode(currentTrainingCode);
-
-    ImGui::Spacing();
-
-    if (ImGui::Button("Open Training Pack Browser", ImVec2(250, 30))) {
-        SuiteSpot* p = plugin_;
-        p->gameWrapper
-            ->SetTimeout([p](GameWrapper* gw) { p->cvarManager->executeCommand("togglemenu suitespot_browser"); }, 0.0f);
-    }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Open the full training pack browser to manage bags and packs");
-    }
 }
 
 void SettingsUI::RenderWorkshopMode(std::string& currentWorkshopPath)
@@ -789,12 +778,21 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
         ImGui::SetTooltip("Curated selection of 10 essential training packs");
     }
     ImGui::SameLine();
-    if (ImGui::RadioButton("Your Favorites", listType == 1)) {
+    if (ImGui::RadioButton("Quick Picks", listType == 1)) {
         UI::Helpers::SetCVarSafely("suitespot_quickpicks_list_type", 1, plugin_->cvarManager, plugin_->gameWrapper);
         selectedQuickPickIndex = -1;
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Your most-used training packs based on load history");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Open Pack Browser", ImVec2(160, 0))) {
+        SuiteSpot* p = plugin_;
+        p->gameWrapper
+            ->SetTimeout([p](GameWrapper* gw) { p->cvarManager->executeCommand("togglemenu suitespot_browser"); }, 0.0f);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Open the full training pack browser to manage bags and packs");
     }
 
     ImGui::Spacing();
@@ -835,7 +833,7 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
 
     // === LEFT PANEL: Pack List ===
     if (ImGui::BeginChild("QuickPicksList", ImVec2(leftWidth, UI::QuickPicksUI::BROWSER_HEIGHT), true)) {
-        const char* header = (listType == 0) ? "Flicks Picks" : "Your Favorites";
+        const char* header = (listType == 0) ? "Flicks Picks" : "Quick Picks";
         ImGui::TextDisabled("%s  (%d packs)", header, (int)quickPicks.size());
         ImGui::Separator();
 
@@ -1022,7 +1020,7 @@ std::vector<std::string> SettingsUI::GetQuickPicksList()
         return flicksPicks;
     }
 
-    // Your Favorites mode - use usage tracker
+    // Your Quick Picks mode - use usage tracker
     if (!plugin_->usageTracker) return flicksPicks;
 
     // If first run or no data, fallback to Flicks Picks
