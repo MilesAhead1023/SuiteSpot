@@ -9,70 +9,226 @@
 #include "SettingsSync.h"
 #include "ConstantsUI.h"
 #include "HelpersUI.h"
+#include "bakkesmod/wrappers/http/HttpWrapper.h"
+#include "IMGUI/SuiteSpotIcons.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <cstdio>
+#include <fstream>
 
-// Helper function for sortable column headers with visual indicators
+// ─────────────────────────────────────────────────────────────────────────────
+// Local helpers
+// ─────────────────────────────────────────────────────────────────────────────
 namespace {
+
+// Sortable column header that shows asc/desc indicator and handles click
 bool SortableColumnHeader(const char* label, int columnIndex, int& currentSortColumn, bool& sortAscending)
 {
-    // Display label with sort indicator if this column is active
-    // Use ASCII arrows (^ v) since Unicode triangles may not be in the font
     char buffer[256];
-    if (currentSortColumn == columnIndex) {
+    if (currentSortColumn == columnIndex)
         snprintf(buffer, sizeof(buffer), "%s %s", label, sortAscending ? "(asc)" : "(desc)");
-    } else {
+    else
         snprintf(buffer, sizeof(buffer), "%s", label);
-    }
 
     bool clicked = ImGui::Selectable(buffer, currentSortColumn == columnIndex, ImGuiSelectableFlags_DontClosePopups);
     if (clicked) {
-        if (currentSortColumn == columnIndex) {
+        if (currentSortColumn == columnIndex)
             sortAscending = !sortAscending;
-        } else {
+        else {
             currentSortColumn = columnIndex;
             sortAscending = true;
         }
     }
     return clicked;
 }
+
+// Draw a small colored text badge (no button, just colored text in brackets)
+void DrawTagBadge(const char* tag)
+{
+    ImGui::PushStyleColor(ImGuiCol_Text, UI::PackBrowserUI::TAG_TEXT_COLOR);
+    ImGui::Text("[%s]", tag);
+    ImGui::PopStyleColor();
+}
+
 } // namespace
 
-TrainingPackUI::TrainingPackUI(SuiteSpot* plugin) : plugin_(plugin)
+// ─────────────────────────────────────────────────────────────────────────────
+// DifficultyColor (static helper used in both panels)
+// ─────────────────────────────────────────────────────────────────────────────
+/*static*/ ImVec4 TrainingPackUI::DifficultyColor(const std::string& difficulty)
 {
-    auto path = plugin_->GetDataRoot() / "SuiteSpot" / "Resources" / "Icons" / "icon_youtube.png";
-    LOG("SuiteSpot: Attempting to load YouTube icon from: " + path.string());
-    youtubeIcon = std::make_shared<ImageWrapper>(path.string(), true);
-    youtubeIcon->LoadForImGui([this, path](bool success) {
-        if (success) {
-            LOG("SuiteSpot: YouTube icon loaded successfully.");
-        } else {
-            LOG("SuiteSpot: Failed to load YouTube icon from " + path.string());
+    if (difficulty == "Bronze") return UI::TrainingPackUI::DIFFICULTY_BADGE_BRONZE_COLOR;
+    if (difficulty == "Silver") return UI::TrainingPackUI::DIFFICULTY_BADGE_SILVER_COLOR;
+    if (difficulty == "Gold") return UI::TrainingPackUI::DIFFICULTY_BADGE_GOLD_COLOR;
+    if (difficulty == "Platinum") return UI::TrainingPackUI::DIFFICULTY_BADGE_PLATINUM_COLOR;
+    if (difficulty == "Diamond") return UI::TrainingPackUI::DIFFICULTY_BADGE_DIAMOND_COLOR;
+    if (difficulty == "Champion") return UI::TrainingPackUI::DIFFICULTY_BADGE_CHAMPION_COLOR;
+    if (difficulty == "Grand Champion") return UI::TrainingPackUI::DIFFICULTY_BADGE_GRAND_CHAMPION_COLOR;
+    if (difficulty == "Supersonic Legend") return UI::TrainingPackUI::DIFFICULTY_BADGE_SUPERSONIC_LEGEND_COLOR;
+    return UI::TrainingPackUI::DIFFICULTY_BADGE_UNRANKED_COLOR;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ExtractYouTubeId
+// ─────────────────────────────────────────────────────────────────────────────
+/*static*/ std::string TrainingPackUI::ExtractYouTubeId(const std::string& url)
+{
+    if (url.empty()) return {};
+
+    // youtu.be/{ID}
+    auto pos = url.find("youtu.be/");
+    if (pos != std::string::npos) {
+        pos += 9;
+        auto end = url.find_first_of("?&", pos);
+        return url.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+    }
+    // youtube.com/shorts/{ID}
+    pos = url.find("/shorts/");
+    if (pos != std::string::npos) {
+        pos += 8;
+        auto end = url.find_first_of("?&", pos);
+        return url.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+    }
+    // youtube.com/watch?v={ID}
+    pos = url.find("v=");
+    if (pos != std::string::npos) {
+        pos += 2;
+        auto end = url.find_first_of("&", pos);
+        return url.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+    }
+    return {};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FetchThumbnailForSelected
+// ─────────────────────────────────────────────────────────────────────────────
+void TrainingPackUI::FetchThumbnailForSelected()
+{
+    if (selectedPackCode.empty() || selectedPackCode == lastFetchedThumbnailCode_) return;
+    lastFetchedThumbnailCode_ = selectedPackCode;
+
+    // Find the entry in filteredPacks
+    TrainingEntry* entry = nullptr;
+    for (auto& p : filteredPacks) {
+        if (p.code == selectedPackCode) {
+            entry = &p;
+            break;
+        }
+    }
+    if (!entry || entry->videoUrl.empty()) return;
+    if (entry->isThumbnailRequested) return;
+
+    std::string videoId = ExtractYouTubeId(entry->videoUrl);
+    if (videoId.empty()) return;
+
+    entry->isThumbnailRequested = true;
+
+    // Check disk cache first
+    std::filesystem::path cachedPath = thumbnailCacheDir_ / (videoId + ".jpg");
+    if (std::filesystem::exists(cachedPath)) {
+        entry->thumbnailImage = std::make_shared<ImageWrapper>(cachedPath.string(), false, true);
+        return;
+    }
+
+    // Download thumbnail
+    std::string thumbUrl = "https://img.youtube.com/vi/" + videoId + "/mqdefault.jpg";
+    std::filesystem::create_directories(thumbnailCacheDir_);
+
+    // Capture by value — entry ptr may be invalidated on next filter rebuild
+    std::string cachePath = cachedPath.string();
+    std::string code = selectedPackCode;
+    TrainingPackUI* self = this;
+
+    CurlRequest req;
+    req.url = thumbUrl;
+    HttpWrapper::SendCurlRequest(req, [self, cachePath, code](int httpCode, char* data, size_t size) {
+        if (httpCode != 200 || size == 0) return;
+
+        // Write to disk
+        std::ofstream f(cachePath, std::ios::binary);
+        if (!f) return;
+        f.write(data, static_cast<std::streamsize>(size));
+        f.close();
+
+        // Load via ImageWrapper — find entry again (filteredPacks may have changed)
+        for (auto& p : self->filteredPacks) {
+            if (p.code == code) {
+                p.thumbnailImage = std::make_shared<ImageWrapper>(cachePath, false, true);
+                break;
+            }
         }
     });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Constructor / PluginWindow boilerplate
+// ─────────────────────────────────────────────────────────────────────────────
+TrainingPackUI::TrainingPackUI(SuiteSpot* plugin) : plugin_(plugin)
+{
+    thumbnailCacheDir_ = plugin_->GetDataRoot() / "SuiteSpot" / "ThumbnailCache";
+}
+
+std::string TrainingPackUI::GetMenuName()
+{
+    return "suitespot_browser";
+}
+std::string TrainingPackUI::GetMenuTitle()
+{
+    return "SuiteSpot Training Browser";
+}
+void TrainingPackUI::SetImGuiContext(uintptr_t ctx)
+{
+    ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx));
+}
+
+bool TrainingPackUI::ShouldBlockInput()
+{
+    if (!isWindowOpen_) return false;
+    ImGuiIO& io = ImGui::GetIO();
+    return io.WantTextInput && ImGui::IsAnyItemActive();
+}
+
+bool TrainingPackUI::IsActiveOverlay()
+{
+    return isWindowOpen_;
+}
+
+void TrainingPackUI::OnOpen()
+{
+    isWindowOpen_ = true;
+    needsFocusOnNextRender_ = true;
+}
+
+void TrainingPackUI::OnClose()
+{
+    isWindowOpen_ = false;
+}
+bool TrainingPackUI::IsOpen()
+{
+    return isWindowOpen_;
+}
+void TrainingPackUI::SetOpen(bool open)
+{
+    isWindowOpen_ = open;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render — main entry point
+// ─────────────────────────────────────────────────────────────────────────────
 void TrainingPackUI::Render()
 {
-    if (!isWindowOpen_) {
-        return;
-    }
+    if (!isWindowOpen_) return;
 
-    ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(900, 620), ImGuiCond_FirstUseEver);
 
-    // Bring window to front when first opened
     if (needsFocusOnNextRender_) {
         ImGui::SetNextWindowFocus();
         needsFocusOnNextRender_ = false;
     }
 
-    // Only prevent bringing to front when modals or special states need focus control
-    ImGuiWindowFlags browserFlags = ImGuiWindowFlags_None;
-
-    // Style vars (11)
+    // ── Style push (11 vars, 17 colors) ──────────────────────────────────────
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, UI::INTERACTIVE_FRAME_BORDER_SIZE);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, UI::INTERACTIVE_FRAME_ROUNDING);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, UI::FRAME_PADDING);
@@ -84,7 +240,7 @@ void TrainingPackUI::Render()
     ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, UI::GRAB_ROUNDING);
     ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, UI::GRAB_MIN_SIZE);
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, UI::SCROLLBAR_ROUNDING);
-    // Colors (17)
+
     ImGui::PushStyleColor(ImGuiCol_Border, UI::INTERACTIVE_BORDER_COLOR);
     ImGui::PushStyleColor(ImGuiCol_Button, UI::BUTTON_COLOR);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::BUTTON_HOVER_COLOR);
@@ -103,225 +259,151 @@ void TrainingPackUI::Render()
     ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, UI::TAB_UNFOCUSED_ACTIVE_COLOR);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, UI::CHILD_BG_COLOR);
 
-    if (!ImGui::Begin(GetMenuTitle().c_str(), &isWindowOpen_, browserFlags)) {
+    if (!ImGui::Begin(GetMenuTitle().c_str(), &isWindowOpen_)) {
         ImGui::PopStyleColor(17);
         ImGui::PopStyleVar(11);
         ImGui::End();
         return;
     }
 
-    // Apply font scale to this window
     ImGui::SetWindowFontScale(UI::FONT_SCALE);
 
     const auto* manager = plugin_->trainingPackMgr.get();
     static const std::vector<TrainingEntry> emptyPacks;
-    static const std::string emptyString;
     const auto& packs = manager ? manager->GetPacks() : emptyPacks;
     const int packCount = manager ? manager->GetPackCount() : 0;
-    const auto& lastUpdated = manager ? manager->GetLastUpdated() : emptyString;
+    const auto& lastUpdated = manager ? manager->GetLastUpdated() : std::string{};
     const bool scraping = manager && manager->IsScrapingInProgress();
 
-    // Sync selection from Quick Picks (Single Source of Truth)
+    // ── Sync selection from Quick Picks ──────────────────────────────────────
     if (plugin_->settingsSync) {
-        std::string currentQuickPick = plugin_->settingsSync->GetQuickPicksSelectedCode();
-        if (currentQuickPick != lastQuickPicksSelected) {
-            if (!currentQuickPick.empty()) {
-                selectedPackCode = currentQuickPick;
-            }
-            lastQuickPicksSelected = currentQuickPick;
+        std::string qp = plugin_->settingsSync->GetQuickPicksSelectedCode();
+        if (qp != lastQuickPicksSelected) {
+            if (!qp.empty()) selectedPackCode = qp;
+            lastQuickPicksSelected = qp;
         }
     }
 
-    // ===== HEADER SECTION =====
+    // ── Window header row ─────────────────────────────────────────────────────
     ImGui::TextColored(UI::TrainingPackUI::SECTION_HEADER_TEXT_COLOR, "Training Pack Browser");
-    ImGui::Spacing();
-
-    // Status line: pack count, last updated, auto-load, and buttons on same row
+    ImGui::SameLine();
     if (packCount > 0) {
-        ImGui::Text("Loaded: %d packs", packCount);
-        ImGui::SameLine();
-        ImGui::TextColored(UI::TrainingPackUI::LAST_UPDATED_TEXT_COLOR, " | Last updated: %s", lastUpdated.c_str());
-    } else {
-        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "No packs loaded - click 'Update Pack List' to download");
+        ImGui::TextDisabled("  %d packs", packCount);
+        if (!lastUpdated.empty()) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("| Updated: %s", lastUpdated.c_str());
+        }
     }
 
-    // Control buttons (same line with spacing)
-    ImGui::SameLine(0.0f, 20.0f);
+    // Right-aligned control buttons
+    float btnW = ImGui::CalcTextSize("Reload Cache").x + ImGui::GetStyle().FramePadding.x * 2.0f + 8.0f;
+    float updateW = ImGui::CalcTextSize("Update Pack List").x + ImGui::GetStyle().FramePadding.x * 2.0f + 8.0f;
+    ImGui::SameLine(ImGui::GetContentRegionMax().x - btnW - updateW - ImGui::GetStyle().ItemSpacing.x);
+
     if (scraping) {
         ImGui::TextColored(UI::TrainingPackUI::SCRAPING_STATUS_TEXT_COLOR, "Updating...");
+        ImGui::SameLine();
     } else {
-        if (ImGui::Button("Update Pack List")) {
-            plugin_->UpdateTrainingPackList();
-        }
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Download latest training packs from online source (~2-3 minutes)");
-        }
+        if (ImGui::Button("Update Pack List")) plugin_->UpdateTrainingPackList();
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Download latest training packs (~2-3 minutes)");
+        ImGui::SameLine();
     }
-
-    ImGui::SameLine();
     if (ImGui::Button("Reload Cache")) {
         plugin_->LoadTrainingPacksFromFile(plugin_->GetTrainingPacksPath());
     }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Reload packs from cached json file");
-    }
-
-    // Load Now button (Immediate load)
-    ImGui::SameLine();
-    bool hasSelection = !selectedPackCode.empty();
-    if (!hasSelection) {
-        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-    }
-    if (ImGui::Button("LOAD NOW") && hasSelection) {
-        LoadPackImmediately(selectedPackCode);
-    }
-    if (!hasSelection) {
-        ImGui::PopStyleVar();
-    }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip(hasSelection ? "Immediately load the selected pack" : "Select a pack first");
-    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Reload packs from cached JSON");
 
     ImGui::Separator();
     ImGui::Spacing();
 
-    // Early return if no packs loaded
     if (packs.empty()) {
-        ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
-                           "your own custom packs below.");
+        ImGui::TextWrapped("No packs available. Click 'Update Pack List' to download the training pack database.");
         ImGui::PopStyleColor(17);
         ImGui::PopStyleVar(11);
         ImGui::End();
         return;
     }
 
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // ===== ADD CUSTOM PACK SECTION =====
-    RenderCustomPackForm();
-
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Early return if no packs loaded
-    if (packs.empty()) {
-        ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
-                           "your own custom packs above.");
-        ImGui::PopStyleColor(17);
-        ImGui::PopStyleVar(11);
-        ImGui::End();
-        return;
-    }
-
-    // ===== FILTER & SEARCH CONTROLS =====
-    ImGui::TextUnformatted("Search & Filters:");
-    ImGui::Spacing();
-
+    // ── Filter bar (full width above both panels) ─────────────────────────────
     bool filtersChanged = (strcmp(packSearchText, lastSearchText) != 0) ||
                           (packDifficultyFilter != lastDifficultyFilter) || (packTagFilter != lastTagFilter) ||
-                          (packMinShots != lastMinShots) || (packSortColumn != lastSortColumn) ||
-                          (packSortAscending != lastSortAscending) || (packVideoFilter != lastVideoFilter);
+                          (packMinShots != lastMinShots) || (packVideoFilter != lastVideoFilter) ||
+                          (packSortColumn != lastSortColumn) || (packSortAscending != lastSortAscending);
 
-    // Fixed widths for filter controls
-    // Search box
-    ImGui::SetNextItemWidth(200.0f);
-    if (ImGui::InputText("##search", packSearchText, IM_ARRAYSIZE(packSearchText))) {
+    // Row 1: search + difficulty + tags + has-video + clear
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::InputTextWithHint("##search", "Search name, creator, tag...", packSearchText, IM_ARRAYSIZE(packSearchText)))
         filtersChanged = true;
-    }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Search by pack name, creator, or tag");
-    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Search by pack name, creator, or tag");
 
-    // Difficulty filter
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(150.0f);
-    const char* difficulties[] = {"All",      "Unranked", "Bronze",   "Silver",         "Gold",
-                                  "Platinum", "Diamond",  "Champion", "Grand Champion", "Supersonic Legend"};
-    if (ImGui::BeginCombo("##difficulty", packDifficultyFilter.c_str())) {
-        for (int i = 0; i < IM_ARRAYSIZE(difficulties); i++) {
-            bool selected = (packDifficultyFilter == difficulties[i]);
-            if (ImGui::Selectable(difficulties[i], selected)) {
-                packDifficultyFilter = difficulties[i];
+    ImGui::SetNextItemWidth(140.0f);
+    static const char* difficulties[] = {"All",      "Unranked", "Bronze",   "Silver",         "Gold",
+                                         "Platinum", "Diamond",  "Champion", "Grand Champion", "Supersonic Legend"};
+    if (ImGui::BeginCombo("##diff", packDifficultyFilter.c_str())) {
+        for (auto& d : difficulties) {
+            bool sel = (packDifficultyFilter == d);
+            if (ImGui::Selectable(d, sel)) {
+                packDifficultyFilter = d;
                 filtersChanged = true;
             }
         }
         ImGui::EndCombo();
     }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Filter by difficulty level");
-    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Filter by difficulty");
 
-    // Shot count range filter
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(150.0f);
-    if (ImGui::SliderInt("Min Shots", &packMinShots, UI::TrainingPackUI::FILTER_MIN_SHOTS_MIN,
-                         UI::TrainingPackUI::FILTER_MIN_SHOTS_MAX)) {
-        filtersChanged = true;
-    }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Minimum number of shots in pack");
-    }
-
-    // Tag filter dropdown (second row)
-    ImGui::SetNextItemWidth(UI::TrainingPackUI::TAG_FILTER_DROPDOWN_WIDTH);
-
     bool packsSourceChanged = (lastPackCount != packCount);
-
     if (!tagsInitialized || packsSourceChanged) {
-        if (manager) {
+        if (manager)
             manager->BuildAvailableTags(availableTags);
-        } else {
+        else {
             availableTags.clear();
             availableTags.push_back("All Tags");
         }
         tagsInitialized = true;
         lastPackCount = packCount;
     }
-
     std::string displayTag = packTagFilter.empty() ? "All Tags" : packTagFilter;
-    if (ImGui::BeginCombo("##tagfilter", displayTag.c_str())) {
+    ImGui::SetNextItemWidth(160.0f);
+    if (ImGui::BeginCombo("##tags", displayTag.c_str())) {
         for (const auto& tag : availableTags) {
-            bool selected = (tag == displayTag);
-            if (ImGui::Selectable(tag.c_str(), selected)) {
+            bool sel = (tag == displayTag);
+            if (ImGui::Selectable(tag.c_str(), sel)) {
                 packTagFilter = (tag == "All Tags") ? "" : tag;
                 filtersChanged = true;
             }
         }
         ImGui::EndCombo();
     }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Filter by tag");
-    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Filter by tag");
 
     ImGui::SameLine();
-
-    // Video filter checkbox
-    if (ImGui::Checkbox("Has Video", &packVideoFilter)) {
-        filtersChanged = true;
-    }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Show only packs with video tutorials");
-    }
+    ImGui::SetNextItemWidth(130.0f);
+    if (ImGui::SliderInt("Min Shots##filter", &packMinShots, 0, 50)) filtersChanged = true;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Minimum shots in pack");
 
     ImGui::SameLine();
-    if (ImGui::Button("Clear Filters")) {
+    if (ImGui::Checkbox("Has Video", &packVideoFilter)) filtersChanged = true;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Show only packs with video tutorial links");
+
+    ImGui::SameLine();
+    if (ImGui::Button("Clear")) {
         packSearchText[0] = '\0';
         packDifficultyFilter = "All";
         packTagFilter = "";
         packMinShots = 0;
-        packMaxShots = 100;
         packVideoFilter = false;
         filtersChanged = true;
     }
 
-    ImGui::Spacing();
-    ImGui::Separator();
+    // Showing count
+    ImGui::SameLine();
+    ImGui::TextDisabled("(%d shown)", (int)filteredPacks.size());
+
     ImGui::Spacing();
 
-    // ===== FILTERED & SORTED PACK LIST (cached) =====
-
-    // Rebuild filtered list only when needed
+    // ── Rebuild filtered list when needed ────────────────────────────────────
     if (filtersChanged || packsSourceChanged || !packListInitialized) {
         if (manager) {
             manager->FilterAndSortPacks(packSearchText, packDifficultyFilter, packTagFilter, packMinShots,
@@ -329,8 +411,6 @@ void TrainingPackUI::Render()
         } else {
             filteredPacks.clear();
         }
-
-        // Update cached filter state
         strncpy_s(lastSearchText, packSearchText, sizeof(lastSearchText) - 1);
         lastDifficultyFilter = packDifficultyFilter;
         lastTagFilter = packTagFilter;
@@ -338,349 +418,474 @@ void TrainingPackUI::Render()
         lastVideoFilter = packVideoFilter;
         lastSortColumn = packSortColumn;
         lastSortAscending = packSortAscending;
-
-        // Flag to recalculate column widths
-        columnWidthsDirty = true;
         packListInitialized = true;
     }
 
-    // Detect if user is searching by code (contains digits)
-    bool showCodeColumn = ShouldShowCodeColumn();
-    int activeColumnCount = showCodeColumn ? 6 : 5;
-
-    // Display filtered count
-    ImGui::Text("Showing %d of %d packs", (int)filteredPacks.size(), packCount);
-    ImGui::Spacing();
-
-    // ===== ACTION BAR =====
-    ImGui::Separator();
-
-    // Render browser status message
+    // ── Status bar ───────────────────────────────────────────────────────────
     browserStatus.Render(ImGui::GetIO().DeltaTime);
     if (browserStatus.IsVisible()) ImGui::Spacing();
 
-    {
-        bool hasSelection = !selectedPackCode.empty();
+    // ── Two-panel layout ─────────────────────────────────────────────────────
+    float availWidth = ImGui::GetContentRegionAvail().x;
+    float leftWidth = std::max(UI::PackBrowserUI::LEFT_PANEL_MIN_WIDTH,
+                               availWidth * UI::PackBrowserUI::LEFT_PANEL_WIDTH_PERCENT);
+    float rightWidth = availWidth - leftWidth - ImGui::GetStyle().ItemSpacing.x;
 
-        // Find selected pack data
-        const TrainingEntry* selectedPack = nullptr;
-        if (hasSelection) {
-            for (const auto& pack : filteredPacks) {
-                if (pack.code == selectedPackCode) {
-                    selectedPack = &pack;
-                    break;
-                }
-            }
-        }
+    ImGui::BeginGroup();
 
-        // Delete (Custom only)
-        if (hasSelection) {
-            if (ImGui::Button("Delete Custom Pack")) {
-                if (plugin_->trainingPackMgr) {
-                    plugin_->trainingPackMgr->DeletePack(selectedPackCode);
-                    browserStatus.ShowSuccess("Deleted custom pack", 3.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
-                    selectedPackCode = "";
-                }
-            }
-        } else {
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-            ImGui::Button("Delete Custom Pack");
-            ImGui::PopStyleVar();
-        }
+    // ─────────────────────────────────────────────────────────────────────────
+    // LEFT PANEL: list
+    // ─────────────────────────────────────────────────────────────────────────
+    if (ImGui::BeginChild("PackList", ImVec2(leftWidth, UI::PackBrowserUI::BROWSER_HEIGHT), true, ImGuiWindowFlags_None)) {
+        // Frozen column header row
+        ImGui::Columns(3, "PackHdr", true);
+        ImGui::SetColumnWidth(0, leftWidth * 0.55f);
+        ImGui::SetColumnWidth(1, leftWidth * 0.25f);
+        // col 2 = remaining
 
-        ImGui::SameLine();
-
-        // Clear Selection
-        if (hasSelection) {
-            if (ImGui::Button("Clear Selection")) {
-                selectedPackCode = "";
-            }
-        } else {
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-            ImGui::Button("Clear Selection");
-            ImGui::PopStyleVar();
-        }
-    }
-
-    // ===== TABLE WITH RESIZABLE COLUMNS & FROZEN HEADER =====
-    ImGui::Separator();
-
-    // Only set initial column widths once, or when window width changes significantly
-    // This allows users to manually resize columns by dragging
-    float currentWindowWidth = ImGui::GetWindowContentRegionWidth();
-    bool windowResized = std::abs(currentWindowWidth - lastWindowWidth) > 50.0f;
-
-    if (!columnWidthsInitialized || windowResized || columnWidthsDirty) {
-        CalculateOptimalColumnWidths();
-        columnWidthsInitialized = true;
-        columnWidthsDirty = false;
-        lastWindowWidth = currentWindowWidth;
-    }
-
-    // ===== FROZEN HEADER ROW =====
-    ImGui::Columns(activeColumnCount, "PackColumns_Header", true);
-
-    for (int i = 0; i < activeColumnCount && i < (int)columnWidths.size(); i++) {
-        ImGui::SetColumnWidth(i, columnWidths[i]);
-    }
-
-    // Name column header (Sort ID 0)
-    if (SortableColumnHeader("Name", 0, packSortColumn, packSortAscending)) {
-        filtersChanged = true;
-    }
-    ImGui::NextColumn();
-
-    // Code column header (only shown when searching by code)
-    if (showCodeColumn) {
-        ImGui::TextColored(UI::TrainingPackUI::SECTION_HEADER_TEXT_COLOR, "Code");
+        if (SortableColumnHeader("Name", 0, packSortColumn, packSortAscending)) filtersChanged = true;
         ImGui::NextColumn();
-    }
+        if (SortableColumnHeader("Difficulty", 2, packSortColumn, packSortAscending)) filtersChanged = true;
+        ImGui::NextColumn();
+        if (SortableColumnHeader("Shots", 3, packSortColumn, packSortAscending)) filtersChanged = true;
+        ImGui::NextColumn();
+        ImGui::Columns(1);
+        ImGui::Separator();
 
-    // Difficulty column header (Sort ID 2)
-    if (SortableColumnHeader("Difficulty", 2, packSortColumn, packSortAscending)) {
-        filtersChanged = true;
-    }
-    ImGui::NextColumn();
+        // Scrollable rows
+        if (ImGui::BeginChild("PackRows", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() - 4.0f), false)) {
+            ImGui::Columns(3, "PackBody", true);
+            ImGui::SetColumnWidth(0, leftWidth * 0.55f);
+            ImGui::SetColumnWidth(1, leftWidth * 0.25f);
 
-    // Shots column header (Sort ID 3)
-    if (SortableColumnHeader("Shots", 3, packSortColumn, packSortAscending)) {
-        filtersChanged = true;
-    }
-    ImGui::NextColumn();
+            ImGuiListClipper clipper;
+            clipper.Begin((int)filteredPacks.size());
+            while (clipper.Step()) {
+                for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
+                    auto& pack = filteredPacks[row];
+                    bool isSelected = (selectedPackCode == pack.code);
 
-    // Likes column header (Sort ID 4)
-    if (SortableColumnHeader("Likes", 4, packSortColumn, packSortAscending)) {
-        filtersChanged = true;
-    }
-    ImGui::NextColumn();
+                    ImGui::PushID(pack.code.c_str());
 
-    // Plays column header (Sort ID 5)
-    if (SortableColumnHeader("Plays", 5, packSortColumn, packSortAscending)) {
-        filtersChanged = true;
-    }
-    ImGui::NextColumn();
-
-    ImGui::Columns(1);
-    ImGui::Separator();
-
-    // ===== SCROLLABLE PACK ROWS =====
-    ImGui::BeginChild("PackTable", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false,
-                      ImGuiWindowFlags_HorizontalScrollbar);
-
-    ImGui::Columns(activeColumnCount, "PackColumns_Body", true);
-
-    for (int i = 0; i < activeColumnCount && i < (int)columnWidths.size(); i++) {
-        ImGui::SetColumnWidth(i, columnWidths[i]);
-    }
-
-    ImGuiListClipper clipper;
-    clipper.Begin((int)filteredPacks.size());
-
-    while (clipper.Step()) {
-        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
-            const auto& pack = filteredPacks[row];
-
-            // Name column with Selection Logic
-            bool isSelected = (selectedPackCode == pack.code);
-            ImGui::PushID(pack.code.c_str());
-
-            // Play Button (if video exists)
-            bool videoClicked = false;
-            if (!pack.videoUrl.empty()) {
-                if (youtubeIcon && youtubeIcon->IsLoadedForImGui()) {
-                    // Use Image with InvisibleButton overlay to remove border
-                    // Use text line height instead of frame height for tighter fit
-                    float iconSize = ImGui::GetTextLineHeight();
-                    ImVec2 cursorPos = ImGui::GetCursorScreenPos();
-
-                    ImGui::Image(youtubeIcon->GetImGuiTex(), ImVec2(iconSize, iconSize));
-
-                    // Overlay invisible button for click detection (form-fit to icon)
-                    ImGui::SetCursorScreenPos(cursorPos);
-                    if (ImGui::InvisibleButton("##youtube", ImVec2(iconSize, iconSize))) {
-                        videoClicked = true;
-                    }
-                } else {
-                    if (ImGui::ArrowButton("##play", ImGuiDir_Right)) {
-                        videoClicked = true;
-                    }
-                }
-
-                if (videoClicked) {
-                    ShellExecuteA(NULL, "open", pack.videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                }
-                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Watch Preview");
-
-                ImGui::SetItemAllowOverlap();
-                ImGui::SameLine();
-            } else {
-                // Indent to align with packs that have buttons (approximate width of button + Spacing)
-                ImGui::Dummy(ImVec2(ImGui::GetTextLineHeight(), 0));
-                ImGui::SameLine();
-            }
-
-            // SpanAllColumns allows clicking anywhere in the row
-            if (ImGui::Selectable(pack.name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns) && !videoClicked) {
-                selectedPackCode = pack.code;
-                lastSelectedRowIndex = row;
-                ImGui::OpenPopup("PackActionPopup");
-            }
-
-            if (ImGui::BeginPopup("PackActionPopup")) {
-                const auto& trainingPacks = manager ? manager->GetPacks() : emptyPacks;
-                auto it = std::find_if(trainingPacks.begin(), trainingPacks.end(),
-                                       [&](const TrainingEntry& e) { return e.code == selectedPackCode; });
-
-                if (it != trainingPacks.end()) {
-                    ImGui::TextColored(UI::TrainingPackUI::SECTION_HEADER_TEXT_COLOR, "%s", it->name.c_str());
-                    ImGui::Separator();
-
-                    if (ImGui::Selectable("Set Post-Match")) {
-                        plugin_->settingsSync->SetQuickPicksSelected(selectedPackCode);
-                        plugin_->cvarManager->getCvar("suitespot_quickpicks_selected").setValue(selectedPackCode);
-                        // Also sync with current training code for consistency
-                        plugin_->settingsSync->SetCurrentTrainingCode(selectedPackCode);
-                        plugin_->cvarManager->getCvar("suitespot_current_training_code").setValue(selectedPackCode);
-                        browserStatus.ShowSuccess("Post-Match set: " + it->name, 2.0f,
-                                                  UI::StatusMessage::DisplayMode::TimerWithFade);
+                    // Video indicator dot
+                    if (!pack.videoUrl.empty()) {
+                        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), ICON_FA_PLAY);
+                        ImGui::SameLine(0, 3.0f);
                     }
 
-                    if (ImGui::Selectable("Load Now")) {
-                        if (plugin_->usageTracker) plugin_->usageTracker->IncrementLoadCount(selectedPackCode);
-                        std::string code = selectedPackCode;
-                        std::string name = it->name;
-                        SuiteSpot* p = plugin_;
-                        p->gameWrapper->SetTimeout(
-                            [p, code, name](GameWrapper* gw) {
-                                p->cvarManager->executeCommand("load_training " + code);
-                                LOG("SuiteSpot: Loading training pack from browser: " + name);
-                            },
-                            0.0f);
-                        if (plugin_->cvarManager) {
-                            plugin_->cvarManager->executeCommand("togglemenu settings");
+                    if (ImGui::Selectable(pack.name.c_str(), isSelected,
+                                          ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap)) {
+                        selectedPackCode = pack.code;
+                        FetchThumbnailForSelected();
+                    }
+                    if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+                    // Scroll to item when it becomes selected
+                    if (isSelected && ImGui::IsWindowAppearing()) ImGui::SetScrollHereY(0.5f);
+
+                    // Context menu
+                    if (ImGui::BeginPopupContextItem("##ctx")) {
+                        ImGui::TextColored(UI::TrainingPackUI::SECTION_HEADER_TEXT_COLOR, "%s", pack.name.c_str());
+                        ImGui::Separator();
+                        if (ImGui::Selectable("Set Post-Match")) {
+                            plugin_->settingsSync->SetQuickPicksSelected(pack.code);
+                            plugin_->cvarManager->getCvar("suitespot_quickpicks_selected").setValue(pack.code);
+                            plugin_->settingsSync->SetCurrentTrainingCode(pack.code);
+                            plugin_->cvarManager->getCvar("suitespot_current_training_code").setValue(pack.code);
+                            browserStatus.ShowSuccess("Post-Match set: " + pack.name, 2.0f,
+                                                      UI::StatusMessage::DisplayMode::TimerWithFade);
                         }
+                        if (ImGui::Selectable("Load Now")) {
+                            LoadPackImmediately(pack.code);
+                        }
+                        if (!pack.videoUrl.empty() && ImGui::Selectable("Watch Video")) {
+                            ShellExecuteA(NULL, "open", pack.videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                        }
+                        ImGui::EndPopup();
                     }
-                }
-                ImGui::EndPopup();
-            }
 
-            // === DRAG SOURCE for drag-and-drop to bag manager ===
-            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-                // Payload: pack code as null-terminated string
-                ImGui::SetDragDropPayload("TRAINING_PACK_CODE", pack.code.c_str(), pack.code.length() + 1);
-
-                // Preview during drag
-                ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "Dragging: %s", pack.name.c_str());
-
-                ImGui::EndDragDropSource();
-            }
-
-            // Right-click context menu for auto-load
-            if (ImGui::BeginPopupContextItem(("PackContext_" + pack.code).c_str())) {
-                ImGui::TextColored(UI::TrainingPackUI::SECTION_HEADER_TEXT_COLOR, "%s", pack.name.c_str());
-                ImGui::Separator();
-
-                // Set as Auto-Load option
-                if (ImGui::Selectable("Set as Auto-Load")) {
-                    plugin_->settingsSync->SetCurrentTrainingCode(pack.code);
-                    plugin_->cvarManager->getCvar("suitespot_current_training_code").setValue(pack.code);
-                    browserStatus.ShowSuccess("Auto-Load set: " + pack.name, 2.0f,
-                                              UI::StatusMessage::DisplayMode::TimerWithFade);
-                }
-                ImGui::EndPopup();
-            }
-
-            ImGui::PopID();
-            if (ImGui::IsItemHovered()) {
-                std::string tooltip = "";
-                if (!pack.staffComments.empty()) tooltip += pack.staffComments + "\n";
-                if (!pack.creator.empty()) tooltip += "Creator: " + pack.creator + "\n";
-                if (!pack.tags.empty()) {
-                    tooltip += "Tags: ";
-                    for (size_t i = 0; i < pack.tags.size(); i++) {
-                        if (i > 0) tooltip += ", ";
-                        tooltip += pack.tags[i];
+                    // Drag source for bag manager
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                        ImGui::SetDragDropPayload("TRAINING_PACK_CODE", pack.code.c_str(), pack.code.length() + 1);
+                        ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "Dragging: %s", pack.name.c_str());
+                        ImGui::EndDragDropSource();
                     }
-                }
-                if (!tooltip.empty()) {
-                    ImVec2 mPos = ImGui::GetMousePos();
-                    ImGui::SetNextWindowPos(ImVec2(mPos.x + 20, mPos.y + 20));
-                    ImGui::BeginTooltip();
-                    ImGui::PushTextWrapPos(450.0f);
-                    ImGui::TextUnformatted(tooltip.c_str());
-                    ImGui::PopTextWrapPos();
-                    ImGui::EndTooltip();
+
+                    ImGui::PopID();
+                    ImGui::NextColumn();
+
+                    // Difficulty column
+                    std::string diff = pack.difficulty.empty() ? "Unranked" : pack.difficulty;
+                    ImGui::TextColored(DifficultyColor(diff), "%s", diff.c_str());
+                    ImGui::NextColumn();
+
+                    // Shots column
+                    ImGui::Text("%d", pack.shotCount);
+                    ImGui::NextColumn();
                 }
             }
-            ImGui::NextColumn();
+            ImGui::Columns(1);
+        }
+        ImGui::EndChild();
 
-            // Code column (only shown when searching by code)
-            if (showCodeColumn) {
-                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", pack.code.c_str());
-                if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("Pack Code: %s", pack.code.c_str());
-                }
-                ImGui::NextColumn();
-            }
-
-            // Difficulty column with color coding
-            ImVec4 diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_UNRANKED_COLOR;
-            std::string displayDifficulty = pack.difficulty;
-
-            if (displayDifficulty.empty() || displayDifficulty == "Unknown" || displayDifficulty == "All") {
-                displayDifficulty = "Unranked";
-            }
-
-            if (displayDifficulty == "Bronze")
-                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_BRONZE_COLOR;
-            else if (displayDifficulty == "Silver")
-                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_SILVER_COLOR;
-            else if (displayDifficulty == "Gold")
-                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_GOLD_COLOR;
-            else if (displayDifficulty == "Platinum")
-                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_PLATINUM_COLOR;
-            else if (displayDifficulty == "Diamond")
-                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_DIAMOND_COLOR;
-            else if (displayDifficulty == "Champion")
-                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_CHAMPION_COLOR;
-            else if (displayDifficulty == "Grand Champion")
-                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_GRAND_CHAMPION_COLOR;
-            else if (displayDifficulty == "Supersonic Legend")
-                diffColor = UI::TrainingPackUI::DIFFICULTY_BADGE_SUPERSONIC_LEGEND_COLOR;
-
-            ImGui::TextColored(diffColor, "%s", displayDifficulty.c_str());
-            ImGui::NextColumn();
-
-            // Shots column
-            ImGui::Text("%d", pack.shotCount);
-            ImGui::NextColumn();
-
-            // Likes column
-            ImGui::Text("%d", pack.likes);
-            ImGui::NextColumn();
-
-            // Plays column
-            ImGui::Text("%d", pack.plays);
-            ImGui::NextColumn();
+        // Left panel footer: "+ Add Custom Pack" button
+        ImGui::Separator();
+        if (ImGui::Button("+ Add Custom Pack", ImVec2(-1.0f, 0.0f))) {
+            showAddPackModal_ = true;
+            ImGui::OpenPopup("Add Custom Pack");
         }
     }
-
-    // End columns
-    ImGui::Columns(1);
     ImGui::EndChild();
 
-    ImGui::Spacing();
+    ImGui::SameLine();
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // RIGHT PANEL: detail
+    // ─────────────────────────────────────────────────────────────────────────
+    if (ImGui::BeginChild("PackDetail", ImVec2(rightWidth, UI::PackBrowserUI::BROWSER_HEIGHT), true,
+                          ImGuiWindowFlags_None)) {
+        // Find selected pack
+        const TrainingEntry* selectedPack = nullptr;
+        for (auto& p : filteredPacks) {
+            if (p.code == selectedPackCode) {
+                selectedPack = &p;
+                break;
+            }
+        }
+        RenderDetailPanel(selectedPack);
+    }
+    ImGui::EndChild();
+
+    ImGui::EndGroup();
+
+    // ── Modal: Add Custom Pack ────────────────────────────────────────────────
+    RenderCustomPackModal();
+
     ImGui::PopStyleColor(17);
     ImGui::PopStyleVar(11);
     ImGui::End();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RenderDetailPanel
+// ─────────────────────────────────────────────────────────────────────────────
+void TrainingPackUI::RenderDetailPanel(const TrainingEntry* pack)
+{
+    if (!pack) {
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + avail.y * 0.40f);
+        ImGui::PushStyleColor(ImGuiCol_Text, UI::PackBrowserUI::NO_SELECTION_COLOR);
+        float textW = ImGui::CalcTextSize("Select a pack from the list").x;
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail.x - textW) * 0.5f);
+        ImGui::TextUnformatted("Select a pack from the list");
+        ImGui::PopStyleColor();
+        return;
+    }
+
+    float panelW = ImGui::GetContentRegionAvail().x;
+
+    // ── Thumbnail ────────────────────────────────────────────────────────────
+    float thumbW = std::min(UI::PackBrowserUI::THUMBNAIL_WIDTH, panelW);
+    float thumbH = thumbW * (UI::PackBrowserUI::THUMBNAIL_HEIGHT / UI::PackBrowserUI::THUMBNAIL_WIDTH);
+
+    if (pack->thumbnailImage && pack->thumbnailImage->GetImGuiTex()) {
+        float offsetX = (panelW - thumbW) * 0.5f;
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
+        ImGui::Image(pack->thumbnailImage->GetImGuiTex(), ImVec2(thumbW, thumbH));
+    } else {
+        // Placeholder rect with centered text
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        float offsetX = (panelW - thumbW) * 0.5f;
+        p.x += offsetX;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilled(p, ImVec2(p.x + thumbW, p.y + thumbH), ImColor(35, 38, 48, 255), 4.0f);
+        dl->AddRect(p, ImVec2(p.x + thumbW, p.y + thumbH), ImColor(60, 70, 90, 255), 4.0f);
+        if (!pack->videoUrl.empty()) {
+            const char* msg = pack->isThumbnailRequested ? "Loading..." : "No Preview";
+            float tw = ImGui::CalcTextSize(msg).x;
+            dl->AddText(ImVec2(p.x + (thumbW - tw) * 0.5f, p.y + thumbH * 0.5f - 7.0f), ImColor(100, 110, 130, 255), msg);
+        } else {
+            const char* msg = "No Video";
+            float tw = ImGui::CalcTextSize(msg).x;
+            dl->AddText(ImVec2(p.x + (thumbW - tw) * 0.5f, p.y + thumbH * 0.5f - 7.0f), ImColor(80, 85, 100, 255), msg);
+        }
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
+        ImGui::Dummy(ImVec2(thumbW, thumbH));
+    }
+
+    ImGui::Spacing();
+
+    // ── Pack name ─────────────────────────────────────────────────────────────
+    ImGui::PushStyleColor(ImGuiCol_Text, UI::PackBrowserUI::PACK_NAME_COLOR);
+    ImGui::PushTextWrapPos(panelW);
+    ImGui::TextWrapped("%s", pack->name.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::PopStyleColor();
+
+    // ── Creator / difficulty / shots row ─────────────────────────────────────
+    ImGui::PushStyleColor(ImGuiCol_Text, UI::PackBrowserUI::CREATOR_COLOR);
+    if (!pack->creator.empty()) ImGui::Text("By: %s", pack->creator.c_str());
+    ImGui::PopStyleColor();
+
+    std::string diff = pack->difficulty.empty() ? "Unranked" : pack->difficulty;
+    ImGui::TextColored(DifficultyColor(diff), "%s", diff.c_str());
+    ImGui::SameLine();
+    ImGui::TextDisabled(" · %d shots", pack->shotCount);
+
+    // ── Stats row ─────────────────────────────────────────────────────────────
+    ImGui::PushStyleColor(ImGuiCol_Text, UI::PackBrowserUI::STATS_COLOR);
+    ImGui::Text("♥ %d  ▶ %d", pack->likes, pack->plays);
+    ImGui::PopStyleColor();
+
+    // ── Tags ──────────────────────────────────────────────────────────────────
+    if (!pack->tags.empty()) {
+        ImGui::Spacing();
+        for (size_t i = 0; i < pack->tags.size(); i++) {
+            if (i > 0) ImGui::SameLine(0, 4.0f);
+            DrawTagBadge(pack->tags[i].c_str());
+        }
+    }
+
+    // ── Pack code (small, copyable) ───────────────────────────────────────────
+    ImGui::Spacing();
+    ImGui::TextDisabled("%s", pack->code.c_str());
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Click to copy code");
+        if (ImGui::IsItemClicked()) {
+            ImGui::SetClipboardText(pack->code.c_str());
+            browserStatus.ShowSuccess("Code copied!", 1.5f, UI::StatusMessage::DisplayMode::TimerWithFade);
+        }
+    }
+
+    // ── Staff comments / notes ────────────────────────────────────────────────
+    if (!pack->staffComments.empty()) {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, UI::PackBrowserUI::COMMENTS_COLOR);
+        ImGui::PushTextWrapPos(panelW);
+        ImGui::TextWrapped("%s", pack->staffComments.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::PopStyleColor();
+    }
+
+    // ── Action buttons ────────────────────────────────────────────────────────
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    bool isCurrentPostMatch = plugin_->settingsSync && plugin_->settingsSync->GetQuickPicksSelectedCode() == pack->code;
+
+    if (isCurrentPostMatch) {
+        ImGui::TextColored(UI::PackBrowserUI::SELECTED_BADGE_COLOR, "Selected for Post-Match");
+        ImGui::Spacing();
+    }
+
+    float btnH = UI::PackBrowserUI::ACTION_BUTTON_HEIGHT;
+    float halfW = (panelW - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+
+    if (!isCurrentPostMatch) {
+        if (ImGui::Button("Set Post-Match", ImVec2(halfW, btnH))) {
+            plugin_->settingsSync->SetQuickPicksSelected(pack->code);
+            plugin_->cvarManager->getCvar("suitespot_quickpicks_selected").setValue(pack->code);
+            plugin_->settingsSync->SetCurrentTrainingCode(pack->code);
+            plugin_->cvarManager->getCvar("suitespot_current_training_code").setValue(pack->code);
+            browserStatus.ShowSuccess("Post-Match set: " + pack->name, 2.0f,
+                                      UI::StatusMessage::DisplayMode::TimerWithFade);
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Set this pack to load after matches");
+        ImGui::SameLine();
+    }
+
+    if (ImGui::Button("Load Now", ImVec2(isCurrentPostMatch ? halfW : halfW, btnH))) {
+        LoadPackImmediately(pack->code);
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Load this pack immediately");
+
+    if (!pack->videoUrl.empty()) {
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, UI::PackBrowserUI::WATCH_BUTTON_COLOR);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::PackBrowserUI::WATCH_BUTTON_HOVER);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, UI::PackBrowserUI::WATCH_BUTTON_COLOR);
+        // Width = remaining space
+        float watchW = panelW - ImGui::GetCursorPosX() + ImGui::GetStyle().WindowPadding.x - 2.0f;
+        watchW = std::max(watchW, 60.0f);
+        if (ImGui::Button(ICON_FA_PLAY " Watch", ImVec2(watchW, btnH))) {
+            ShellExecuteA(NULL, "open", pack->videoUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Open video in browser");
+        ImGui::PopStyleColor(3);
+    }
+
+    // Delete button (custom packs only)
+    if (pack->source == "custom") {
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Button, UI::TrainingPackUI::DELETE_BUTTON_BG_COLOR);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::TrainingPackUI::DELETE_BUTTON_HOVER_COLOR);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, UI::TrainingPackUI::DELETE_BUTTON_BG_COLOR);
+        if (ImGui::Button("Delete Custom Pack", ImVec2(-1.0f, btnH))) {
+            if (plugin_->trainingPackMgr) {
+                plugin_->trainingPackMgr->DeletePack(pack->code);
+                browserStatus.ShowSuccess("Deleted custom pack", 3.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                selectedPackCode.clear();
+            }
+        }
+        ImGui::PopStyleColor(3);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RenderCustomPackModal
+// ─────────────────────────────────────────────────────────────────────────────
+void TrainingPackUI::RenderCustomPackModal()
+{
+    // Center the modal
+    ImVec2 center = ImGui::GetIO().DisplaySize;
+    center.x *= 0.5f;
+    center.y *= 0.5f;
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(480, 0), ImGuiCond_Appearing);
+
+    if (!ImGui::BeginPopupModal("Add Custom Pack", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+
+    ImGui::TextColored(UI::TrainingPackUI::SECTION_HEADER_TEXT_COLOR, "Add Custom Training Pack");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    customPackStatus.Render(ImGui::GetIO().DeltaTime);
+    if (customPackStatus.IsVisible()) ImGui::Spacing();
+
+    // Code
+    ImGui::TextUnformatted("Code *");
+    ImGui::SameLine();
+    ImGui::TextColored(UI::TrainingPackUI::DISABLED_INFO_TEXT_COLOR, "(XXXX-XXXX-XXXX-XXXX)");
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::InputText("##mcode", customPackCode, IM_ARRAYSIZE(customPackCode))) {
+        // Auto-format: keep only alphanumeric, insert dashes at positions 4,9,14
+        std::string raw;
+        for (int i = 0; customPackCode[i]; i++) {
+            char c = customPackCode[i];
+            if (isalnum(static_cast<unsigned char>(c)))
+                raw += static_cast<char>(toupper(static_cast<unsigned char>(c)));
+        }
+        if (raw.length() > 16) raw = raw.substr(0, 16);
+        std::string fmt;
+        for (size_t i = 0; i < raw.length(); i++) {
+            if (i > 0 && i % 4 == 0) fmt += '-';
+            fmt += raw[i];
+        }
+        strncpy_s(customPackCode, fmt.c_str(), sizeof(customPackCode) - 1);
+    }
+
+    // Name
+    ImGui::TextUnformatted("Name *");
+    ImGui::SetNextItemWidth(300.0f);
+    ImGui::InputText("##mname", customPackName, IM_ARRAYSIZE(customPackName));
+
+    // Creator
+    ImGui::TextUnformatted("Creator");
+    ImGui::SetNextItemWidth(200.0f);
+    ImGui::InputText("##mcreator", customPackCreator, IM_ARRAYSIZE(customPackCreator));
+
+    // Difficulty + Shot Count on same row
+    ImGui::TextUnformatted("Difficulty");
+    ImGui::SameLine(120.0f);
+    ImGui::TextUnformatted("Shot Count");
+
+    static const char* diffs[] = {"Unranked", "Bronze",         "Silver",           "Gold", "Platinum", "Diamond",
+                                  "Champion", "Grand Champion", "Supersonic Legend"};
+    ImGui::SetNextItemWidth(150.0f);
+    ImGui::Combo("##mdiff", &customPackDifficulty, diffs, IM_ARRAYSIZE(diffs));
+    ImGui::SameLine(120.0f);
+    ImGui::SetNextItemWidth(100.0f);
+    ImGui::SliderInt("##mshots", &customPackShotCount, 1, 50);
+
+    // Tags
+    ImGui::TextUnformatted("Tags");
+    ImGui::SameLine();
+    ImGui::TextColored(UI::TrainingPackUI::DISABLED_INFO_TEXT_COLOR, "(comma-separated)");
+    ImGui::SetNextItemWidth(300.0f);
+    ImGui::InputText("##mtags", customPackTags, IM_ARRAYSIZE(customPackTags));
+
+    // Notes
+    ImGui::TextUnformatted("Notes");
+    ImGui::InputTextMultiline("##mnotes", customPackNotes, IM_ARRAYSIZE(customPackNotes), ImVec2(440.0f, 60.0f));
+
+    // Video URL
+    ImGui::TextUnformatted("Video URL");
+    ImGui::SetNextItemWidth(350.0f);
+    ImGui::InputText("##mvideo", customPackVideoUrl, IM_ARRAYSIZE(customPackVideoUrl));
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::TextColored(UI::TrainingPackUI::DISABLED_INFO_TEXT_COLOR, "* Required");
+    ImGui::SameLine();
+
+    // Buttons right-aligned
+    float addW = ImGui::CalcTextSize("Add Pack").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+    float cancelW = ImGui::CalcTextSize("Cancel").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+    ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x - addW - cancelW - ImGui::GetStyle().ItemSpacing.x);
+
+    if (ImGui::Button("Add Pack", ImVec2(addW, 0))) {
+        customPackStatus.Clear();
+        if (strlen(customPackCode) == 0)
+            customPackStatus.ShowError("Pack code is required");
+        else if (!ValidatePackCode(customPackCode))
+            customPackStatus.ShowError("Invalid format. Expected: XXXX-XXXX-XXXX-XXXX");
+        else if (strlen(customPackName) == 0)
+            customPackStatus.ShowError("Pack name is required");
+        else {
+            TrainingEntry p;
+            p.code = customPackCode;
+            p.name = customPackName;
+            p.creator = strlen(customPackCreator) > 0 ? customPackCreator : "Unknown";
+            p.difficulty = diffs[customPackDifficulty];
+            p.shotCount = customPackShotCount;
+            if (strlen(customPackTags) > 0) {
+                std::string tagsStr = customPackTags;
+                size_t start = 0, end = tagsStr.find(',');
+                while (end != std::string::npos) {
+                    auto tag = tagsStr.substr(start, end - start);
+                    auto f = tag.find_first_not_of(" \t");
+                    auto l = tag.find_last_not_of(" \t");
+                    if (f != std::string::npos) p.tags.push_back(tag.substr(f, l - f + 1));
+                    start = end + 1;
+                    end = tagsStr.find(',', start);
+                }
+                auto tag = tagsStr.substr(start);
+                auto f = tag.find_first_not_of(" \t"), l = tag.find_last_not_of(" \t");
+                if (f != std::string::npos) p.tags.push_back(tag.substr(f, l - f + 1));
+            }
+            p.staffComments = customPackNotes;
+            p.videoUrl = customPackVideoUrl;
+            p.source = "custom";
+            if (plugin_->trainingPackMgr && plugin_->trainingPackMgr->AddCustomPack(p)) {
+                browserStatus.ShowSuccess("Pack added: " + p.name, 3.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
+                ClearCustomPackForm();
+                ImGui::CloseCurrentPopup();
+            } else {
+                customPackStatus.ShowError("Pack with this code already exists");
+            }
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(cancelW, 0))) {
+        ClearCustomPackForm();
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utility helpers
+// ─────────────────────────────────────────────────────────────────────────────
 bool TrainingPackUI::ValidatePackCode(const char* code) const
 {
-    if (strlen(code) != UI::TrainingPackUI::PACK_CODE_EXPECTED_LENGTH) return false;
-    for (int i = 0; i < UI::TrainingPackUI::PACK_CODE_EXPECTED_LENGTH; i++) {
-        if (i == UI::TrainingPackUI::PACK_CODE_DASH_POSITION_1 || i == UI::TrainingPackUI::PACK_CODE_DASH_POSITION_2 ||
-            i == UI::TrainingPackUI::PACK_CODE_DASH_POSITION_3) {
+    if (strlen(code) != 19) return false;
+    for (int i = 0; i < 19; i++) {
+        if (i == 4 || i == 9 || i == 14) {
             if (code[i] != '-') return false;
         } else {
             if (!isalnum(static_cast<unsigned char>(code[i]))) return false;
@@ -702,297 +907,30 @@ void TrainingPackUI::ClearCustomPackForm()
     customPackStatus.Clear();
 }
 
-void TrainingPackUI::RenderCustomPackForm()
-{
-    if (ImGui::CollapsingHeader("Add Custom Pack")) {
-        ImGui::Indent(UI::TrainingPackUI::CUSTOM_PACK_FORM_INDENT);
-        ImGui::Spacing();
-
-        customPackStatus.Render(ImGui::GetIO().DeltaTime);
-        if (customPackStatus.IsVisible()) {
-            ImGui::Spacing();
-        }
-
-        ImGui::TextUnformatted("Code *");
-        ImGui::SameLine();
-        ImGui::TextColored(UI::TrainingPackUI::DISABLED_INFO_TEXT_COLOR, "(XXXX-XXXX-XXXX-XXXX)");
-        ImGui::SetNextItemWidth(UI::TrainingPackUI::CUSTOM_PACK_CODE_INPUT_WIDTH);
-        if (ImGui::InputText("##customcode", customPackCode, IM_ARRAYSIZE(customPackCode))) {
-            std::string raw;
-            for (int i = 0; customPackCode[i]; i++) {
-                char c = customPackCode[i];
-                if (isalnum(static_cast<unsigned char>(c))) {
-                    raw += static_cast<char>(toupper(static_cast<unsigned char>(c)));
-                }
-            }
-            if (raw.length() > UI::TrainingPackUI::PACK_CODE_RAW_MAX_LENGTH)
-                raw = raw.substr(0, UI::TrainingPackUI::PACK_CODE_RAW_MAX_LENGTH);
-            std::string formatted;
-            for (size_t i = 0; i < raw.length(); i++) {
-                if (i > 0 && i % 4 == 0) formatted += '-';
-                formatted += raw[i];
-            }
-            strncpy_s(customPackCode, formatted.c_str(), sizeof(customPackCode) - 1);
-        }
-
-        ImGui::TextUnformatted("Name *");
-        ImGui::SetNextItemWidth(UI::TrainingPackUI::CUSTOM_PACK_NAME_INPUT_WIDTH);
-        ImGui::InputText("##customname", customPackName, IM_ARRAYSIZE(customPackName));
-
-        ImGui::TextUnformatted("Creator");
-        ImGui::SetNextItemWidth(UI::TrainingPackUI::CUSTOM_PACK_CREATOR_INPUT_WIDTH);
-        ImGui::InputText("##customcreator", customPackCreator, IM_ARRAYSIZE(customPackCreator));
-
-        ImGui::TextUnformatted("Difficulty");
-        ImGui::SetNextItemWidth(UI::TrainingPackUI::CUSTOM_PACK_DIFFICULTY_DROPDOWN_WIDTH);
-        const char* difficulties[] = {"Unranked", "Bronze",         "Silver",           "Gold", "Platinum", "Diamond",
-                                      "Champion", "Grand Champion", "Supersonic Legend"};
-        ImGui::Combo("##customdifficulty", &customPackDifficulty, difficulties, IM_ARRAYSIZE(difficulties));
-
-        ImGui::TextUnformatted("Shot Count");
-        ImGui::SetNextItemWidth(200);
-        ImGui::SliderInt("##customshots", &customPackShotCount, UI::TrainingPackUI::CUSTOM_PACK_SHOTS_MIN,
-                         UI::TrainingPackUI::CUSTOM_PACK_SHOTS_MAX);
-
-        ImGui::TextUnformatted("Tags");
-        ImGui::SameLine();
-        ImGui::TextColored(UI::TrainingPackUI::DISABLED_INFO_TEXT_COLOR, "(comma-separated)");
-        ImGui::SetNextItemWidth(UI::TrainingPackUI::CUSTOM_PACK_TAGS_INPUT_WIDTH);
-        ImGui::InputText("##customtags", customPackTags, IM_ARRAYSIZE(customPackTags));
-
-        ImGui::TextUnformatted("Notes");
-        ImGui::InputTextMultiline("##customnotes", customPackNotes, IM_ARRAYSIZE(customPackNotes),
-                                  ImVec2(UI::TrainingPackUI::CUSTOM_PACK_NOTES_INPUT_WIDTH,
-                                         UI::TrainingPackUI::CUSTOM_PACK_NOTES_INPUT_HEIGHT));
-
-        ImGui::TextUnformatted("Video URL");
-        ImGui::SetNextItemWidth(UI::TrainingPackUI::CUSTOM_PACK_VIDEO_URL_INPUT_WIDTH);
-        ImGui::InputText("##customvideo", customPackVideoUrl, IM_ARRAYSIZE(customPackVideoUrl));
-
-        ImGui::Spacing();
-
-        if (ImGui::Button("Add Pack", ImVec2(0, UI::TrainingPackUI::CUSTOM_PACK_ADD_BUTTON_HEIGHT))) {
-            customPackStatus.Clear();
-            if (strlen(customPackCode) == 0) {
-                customPackStatus.ShowError("Pack code is required");
-            } else if (!ValidatePackCode(customPackCode)) {
-                customPackStatus.ShowError("Invalid code format. Expected: XXXX-XXXX-XXXX-XXXX");
-            } else if (strlen(customPackName) == 0) {
-                customPackStatus.ShowError("Pack name is required");
-            } else {
-                TrainingEntry pack;
-                pack.code = customPackCode;
-                pack.name = customPackName;
-                pack.creator = strlen(customPackCreator) > 0 ? customPackCreator : "Unknown";
-                const char* difficultyNames[] = {"Unranked", "Bronze",         "Silver",
-                                                 "Gold",     "Platinum",       "Diamond",
-                                                 "Champion", "Grand Champion", "Supersonic Legend"};
-                pack.difficulty = difficultyNames[customPackDifficulty];
-                pack.shotCount = customPackShotCount;
-                if (strlen(customPackTags) > 0) {
-                    std::string tagsStr = customPackTags;
-                    size_t start = 0;
-                    size_t end = tagsStr.find(',');
-                    while (end != std::string::npos) {
-                        std::string tag = tagsStr.substr(start, end - start);
-                        size_t first = tag.find_first_not_of(" \t");
-                        size_t last = tag.find_last_not_of(" \t");
-                        if (first != std::string::npos) {
-                            pack.tags.push_back(tag.substr(first, last - first + 1));
-                        }
-                        start = end + 1;
-                        end = tagsStr.find(',', start);
-                    }
-                    std::string tag = tagsStr.substr(start);
-                    size_t first = tag.find_first_not_of(" \t");
-                    size_t last = tag.find_last_not_of(" \t");
-                    if (first != std::string::npos) {
-                        pack.tags.push_back(tag.substr(first, last - first + 1));
-                    }
-                }
-                pack.staffComments = customPackNotes;
-                pack.videoUrl = customPackVideoUrl;
-                pack.source = "custom";
-                pack.isModified = false;
-                if (plugin_->trainingPackMgr) {
-                    if (plugin_->trainingPackMgr->AddCustomPack(pack)) {
-                        customPackStatus.ShowSuccess("Pack added successfully!");
-                        ClearCustomPackForm();
-                        LOG("SuiteSpot: Added custom pack: " + pack.name);
-                    } else {
-                        customPackStatus.ShowError("Pack with this code already exists");
-                    }
-                } else {
-                    customPackStatus.ShowError("Pack manager not initialized");
-                }
-            }
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Clear", ImVec2(0, UI::TrainingPackUI::CUSTOM_PACK_CLEAR_BUTTON_HEIGHT))) {
-            ClearCustomPackForm();
-        }
-        ImGui::Spacing();
-        ImGui::TextColored(UI::TrainingPackUI::DISABLED_INFO_TEXT_COLOR, "* Required fields");
-        ImGui::Unindent(UI::TrainingPackUI::CUSTOM_PACK_FORM_INDENT);
-        ImGui::Spacing();
-    }
-}
-
-bool TrainingPackUI::ShouldShowCodeColumn() const
-{
-    for (size_t i = 0; packSearchText[i] != '\0'; i++) {
-        if (std::isdigit(static_cast<unsigned char>(packSearchText[i]))) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void TrainingPackUI::CalculateOptimalColumnWidths()
-{
-    float availWidth = ImGui::GetWindowContentRegionWidth();
-    int columnCount = ShouldShowCodeColumn() ? 6 : 5;
-    columnWidths.assign(columnCount, 0.0f);
-
-    if (ShouldShowCodeColumn()) {
-        // Name (35%), Code (15%), Difficulty (20%), Shots (10%), Likes (10%), Plays (10%)
-        columnWidths[0] = availWidth * 0.35f;
-        columnWidths[1] = availWidth * 0.15f;
-        columnWidths[2] = availWidth * 0.20f;
-        columnWidths[3] = availWidth * 0.10f;
-        columnWidths[4] = availWidth * 0.10f;
-        columnWidths[5] = availWidth * 0.10f;
-    } else {
-        // Name (45%), Difficulty (25%), Shots (10%), Likes (10%), Plays (10%)
-        columnWidths[0] = availWidth * 0.45f;
-        columnWidths[1] = availWidth * 0.25f;
-        columnWidths[2] = availWidth * 0.10f;
-        columnWidths[3] = availWidth * 0.10f;
-        columnWidths[4] = availWidth * 0.10f;
-    }
-
-    // Apply minimum widths to ensure readability
-    for (int i = 0; i < columnCount; i++) {
-        if (i == 0 && columnWidths[i] < 150.0f)
-            columnWidths[i] = 150.0f;
-        else if (columnWidths[i] < 60.0f)
-            columnWidths[i] = 60.0f;
-    }
-}
-
-std::string TrainingPackUI::GetMenuName()
-{
-    return "suitespot_browser";
-}
-
-std::string TrainingPackUI::GetMenuTitle()
-{
-    return "SuiteSpot Training Browser";
-}
-
-void TrainingPackUI::SetImGuiContext(uintptr_t ctx)
-{
-    ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx));
-}
-
-bool TrainingPackUI::ShouldBlockInput()
-{
-    if (!isWindowOpen_) {
-        return false; // Window closed → no blocking
-    }
-
-    // ============================================================================
-    // INPUT BLOCKING STRATEGY
-    // ============================================================================
-    //
-    // The default PluginWindowBase::ShouldBlockInput() blocks ALL application
-    // input whenever ImGui wants mouse or keyboard input. This is too aggressive
-    // and prevents multi-window interactions like drag-and-drop.
-    //
-    // Our selective approach:
-    // 1. Allow drag-and-drop between browser and bag manager (modal popups)
-    // 2. Block only when user is actively typing in text fields
-    // 3. Allow normal mouse interactions (clicking, hovering, scrolling)
-    //
-    // This enables the drag-and-drop UX while maintaining text input safety.
-    // Based on: docs/Examples/ManagingMultipleWindows.md:163-180
-    // ============================================================================
-
-    ImGuiIO& io = ImGui::GetIO();
-
-    // Block when actively typing in text fields (search box, custom pack form)
-    // This prevents game commands from firing while typing
-    if (io.WantTextInput && ImGui::IsAnyItemActive()) {
-        return true;
-    }
-
-    // Allow normal mouse interaction without blocking game input
-    // This includes drag-and-drop operations between browser and bag manager modal
-    // Note: We intentionally DON'T block for popups/modals because the Bag Manager modal
-    // needs to allow drag operations from the parent browser window (same ImGui context)
-    return false;
-}
-
-bool TrainingPackUI::IsActiveOverlay()
-{
-    return isWindowOpen_;
-}
-
-void TrainingPackUI::OnOpen()
-{
-    isWindowOpen_ = true;
-    needsFocusOnNextRender_ = true; // Bring window to front on next render
-}
-
-void TrainingPackUI::OnClose()
-{
-    isWindowOpen_ = false;
-}
-
-bool TrainingPackUI::IsOpen()
-{
-    return isWindowOpen_;
-}
-
-void TrainingPackUI::SetOpen(bool open)
-{
-    isWindowOpen_ = open;
-}
-
 void TrainingPackUI::LoadPackImmediately(const std::string& packCode)
 {
     if (packCode.empty() || !plugin_) return;
+    if (plugin_->usageTracker) plugin_->usageTracker->IncrementLoadCount(packCode);
 
-    // Increment usage stats
-    if (plugin_->usageTracker) {
-        plugin_->usageTracker->IncrementLoadCount(packCode);
-    }
-
-    // Find pack name for logging
     std::string packName = packCode;
-    const auto* manager = plugin_->trainingPackMgr.get();
-    if (manager) {
-        for (const auto& pack : manager->GetPacks()) {
-            if (pack.code == packCode) {
-                packName = pack.name;
+    if (const auto* mgr = plugin_->trainingPackMgr.get()) {
+        for (const auto& p : mgr->GetPacks()) {
+            if (p.code == packCode) {
+                packName = p.name;
                 break;
             }
         }
     }
 
-    // Execute load immediately (0 delay)
-    SuiteSpot* p = plugin_;
+    SuiteSpot* plug = plugin_;
     std::string code = packCode;
-    p->gameWrapper->SetTimeout(
-        [p, code, packName](GameWrapper* gw) {
-            p->cvarManager->executeCommand("load_training " + code);
-            LOG("SuiteSpot: Loading training pack immediately: {}", packName);
+    plug->gameWrapper->SetTimeout(
+        [plug, code, packName](GameWrapper*) {
+            plug->cvarManager->executeCommand("load_training " + code);
+            LOG("SuiteSpot: Loading training pack: {}", packName);
         },
         0.0f);
 
     browserStatus.ShowSuccess("Loading: " + packName, 2.0f, UI::StatusMessage::DisplayMode::TimerWithFade);
-
-    if (plugin_->cvarManager) {
-        plugin_->cvarManager->executeCommand("togglemenu settings");
-    }
+    if (plugin_->cvarManager) plugin_->cvarManager->executeCommand("togglemenu settings");
 }

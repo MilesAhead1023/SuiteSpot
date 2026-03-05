@@ -513,4 +513,40 @@ inline const ImVec4 NO_MAPS_COLOR = ImVec4(0.8f, 0.8f, 0.3f, 1.0f);
 inline const ImVec4 SELECTED_BADGE_COLOR = ImVec4(0.2f, 0.7f, 0.2f, 1.0f);
 } // namespace WorkshopBrowserUI
 
+// ===================================================================
+// PACK BROWSER UI CONSTANTS (Two-Panel Layout — floating window)
+// ===================================================================
+namespace PackBrowserUI {
+// Left panel takes 60% of available width (wider list to show names)
+constexpr float LEFT_PANEL_WIDTH_PERCENT = 0.60f;
+
+// Minimum pixel width for left panel before clamping
+constexpr float LEFT_PANEL_MIN_WIDTH = 320.0f;
+
+// Height of the two-panel browser area (shrinks to allow header/footer)
+constexpr float BROWSER_HEIGHT = -60.0f; // negative = fill to bottom minus N px
+
+// YouTube thumbnail dimensions (standard mqdefault.jpg)
+constexpr float THUMBNAIL_WIDTH = 280.0f;
+constexpr float THUMBNAIL_HEIGHT = 157.5f; // 16:9
+
+// Action button height in detail panel
+constexpr float ACTION_BUTTON_HEIGHT = 26.0f;
+
+// Tag badge padding (horizontal, vertical)
+inline const ImVec2 TAG_BADGE_PADDING = ImVec2(6.0f, 2.0f);
+
+// Colors — detail panel
+inline const ImVec4 PACK_NAME_COLOR = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+inline const ImVec4 CREATOR_COLOR = ImVec4(0.70f, 0.70f, 0.70f, 1.0f);
+inline const ImVec4 STATS_COLOR = ImVec4(0.60f, 0.60f, 0.60f, 1.0f);
+inline const ImVec4 COMMENTS_COLOR = ImVec4(0.75f, 0.75f, 0.75f, 1.0f);
+inline const ImVec4 SELECTED_BADGE_COLOR = ImVec4(0.2f, 0.7f, 0.2f, 1.0f);
+inline const ImVec4 TAG_BADGE_COLOR = ImVec4(0.25f, 0.40f, 0.65f, 1.0f);    // dark blue chip bg
+inline const ImVec4 TAG_TEXT_COLOR = ImVec4(0.75f, 0.88f, 1.00f, 1.0f);     // light blue text
+inline const ImVec4 WATCH_BUTTON_COLOR = ImVec4(0.65f, 0.10f, 0.10f, 1.0f); // YouTube red
+inline const ImVec4 WATCH_BUTTON_HOVER = ImVec4(0.85f, 0.15f, 0.15f, 1.0f);
+inline const ImVec4 NO_SELECTION_COLOR = ImVec4(0.45f, 0.45f, 0.45f, 1.0f);
+} // namespace PackBrowserUI
+
 } // namespace UI
