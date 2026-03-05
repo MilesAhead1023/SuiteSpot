@@ -72,7 +72,14 @@ void TrainingPackUI::Render()
     // Only prevent bringing to front when modals or special states need focus control
     ImGuiWindowFlags browserFlags = ImGuiWindowFlags_None;
 
+    // Interactive control styling: border + rounding on all buttons, checkboxes, inputs, etc.
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, UI::INTERACTIVE_FRAME_BORDER_SIZE);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, UI::INTERACTIVE_FRAME_ROUNDING);
+    ImGui::PushStyleColor(ImGuiCol_Border, UI::INTERACTIVE_BORDER_COLOR);
+
     if (!ImGui::Begin(GetMenuTitle().c_str(), &isWindowOpen_, browserFlags)) {
+        ImGui::PopStyleColor(1);
+        ImGui::PopStyleVar(2);
         ImGui::End();
         return;
     }
@@ -156,6 +163,8 @@ void TrainingPackUI::Render()
     if (packs.empty()) {
         ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
                            "your own custom packs below.");
+        ImGui::PopStyleColor(1);
+        ImGui::PopStyleVar(2);
         ImGui::End();
         return;
     }
@@ -173,6 +182,8 @@ void TrainingPackUI::Render()
     if (packs.empty()) {
         ImGui::TextWrapped("No packs available. Click 'Scrape Packs' to download the training pack database, or add "
                            "your own custom packs above.");
+        ImGui::PopStyleColor(1);
+        ImGui::PopStyleVar(2);
         ImGui::End();
         return;
     }
@@ -633,6 +644,8 @@ void TrainingPackUI::Render()
     ImGui::EndChild();
 
     ImGui::Spacing();
+    ImGui::PopStyleColor(1);
+    ImGui::PopStyleVar(2);
     ImGui::End();
 }
 

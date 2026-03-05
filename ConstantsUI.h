@@ -14,6 +14,17 @@ namespace UI {
 // Font scale applied to all SuiteSpot windows (per-window, not global)
 constexpr float FONT_SCALE = 1.12f;
 
+// === Interactive Control Styling ===
+
+// Border thickness (px) on buttons, checkboxes, inputs, sliders, combos
+constexpr float INTERACTIVE_FRAME_BORDER_SIZE = 1.0f;
+
+// Corner rounding (px) on all framed interactive controls
+constexpr float INTERACTIVE_FRAME_ROUNDING = 3.0f;
+
+// Border color for interactive controls — soft blue accent
+inline const ImVec4 INTERACTIVE_BORDER_COLOR = ImVec4(0.40f, 0.55f, 0.80f, 0.85f);
+
 // ===================================================================
 // SETTINGS UI CONSTANTS
 // ===================================================================

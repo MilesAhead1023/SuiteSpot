@@ -27,6 +27,11 @@ void SettingsUI::RenderMainSettingsWindow()
         return;
     }
 
+    // Interactive control styling: border + rounding on all buttons, checkboxes, inputs, etc.
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, UI::INTERACTIVE_FRAME_BORDER_SIZE);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, UI::INTERACTIVE_FRAME_ROUNDING);
+    ImGui::PushStyleColor(ImGuiCol_Border, UI::INTERACTIVE_BORDER_COLOR);
+
     ImGui::SetWindowFontScale(UI::FONT_SCALE);
 
     // Header with metadata and Load Now button
@@ -425,6 +430,9 @@ void SettingsUI::RenderMainSettingsWindow()
     if (!enabledValue) {
         ImGui::PopStyleVar();
     }
+
+    ImGui::PopStyleColor(1); // ImGuiCol_Border
+    ImGui::PopStyleVar(2);   // FrameBorderSize, FrameRounding
 }
 
 void SettingsUI::RenderGeneralTab(bool& enabledValue, int& mapTypeValue)
