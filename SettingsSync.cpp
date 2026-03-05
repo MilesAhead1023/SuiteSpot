@@ -70,11 +70,6 @@ void SettingsSync::RegisterAllCVars(const std::shared_ptr<CVarManagerWrapper>& c
         .addOnValueChanged(
             [this](std::string oldValue, CVarWrapper cvar) { currentWorkshopPath = cvar.getStringValue(); });
 
-    cvarManager
-        ->registerCvar("suitespot_auto_download_textures", "0", "Auto-download missing workshop textures on launch",
-                       true, true, 0, true, 1)
-        .addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { autoDownloadTextures = cvar.getBoolValue(); });
-
     cvarManager->registerCvar("ss_training_maps", "", "Stored training maps", true, false, 0, false, 0);
 
     // Hotkey bindings: dual-key required. Key1 = trigger, Key2 = must be held.

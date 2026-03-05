@@ -61,8 +61,8 @@ class SettingsUI
     void RenderTextureCheck();
     void RenderDownloadTexturesPopup(const std::vector<std::string>& missingFiles);
 
-    void RLMAPS_RenderSearchWorkshopResults(const char* mapspath);
-    void RenderReleases(RLMAPS_MapResult mapResult, const char* mapspath);
+    void RenderWorkshopResults(const char* mapspath);
+    void RenderReleases(WorkshopMap map, const char* mapspath);
     void RenderAcceptDownload();
     void RenderYesNoPopup(const char* popupName, const char* label, std::function<void()> yesFunc,
                           std::function<void()> noFunc);
@@ -76,7 +76,7 @@ class SettingsUI
     std::string workshopPathCache = "";
 
     // Workshop browser state
-    char workshopSearchBuf[256] = {0};
+    char workshopSearchBuf[256] = {0}; // kept for legacy/unused
     char workshopDownloadPathBuf[512] = {0};
 
     // Workshop local browser state (two-panel layout)
@@ -91,13 +91,14 @@ class SettingsUI
     char workshopInstalledFilterBuf[128] = {0};
     bool scrollToSelectedWorkshop = true; // Scroll to selection on first appear
 
-    // Workshop browser (RLMAPS) state
-    int selectedBrowserIndex = -1;                   // Indexes into displayResultList
-    std::vector<RLMAPS_MapResult> cachedResultList;  // Unmodified API results (source of truth)
-    std::vector<RLMAPS_MapResult> displayResultList; // Ranked/filtered view — what the UI renders
-    int lastListVersion = -1;                        // Track version to know when to refresh cache
-    char localFilterBuf[256] = {0};                  // Real-time local filter (re-ranks without API call)
-    std::string lastLocalFilter;                     // Detect when filter text changes
+    // Workshop browser state
+    int selectedBrowserIndex = -1;
+    std::string selectedMapID; // preserves selection across list rebuilds
+    std::vector<WorkshopMap> cachedResultList;
+    std::vector<WorkshopMap> displayResultList;
+    int lastListVersion = -1;       // Track version to know when to refresh cache
+    char localFilterBuf[256] = {0}; // Real-time local filter (re-ranks without API call)
+    std::string lastLocalFilter;    // Detect when filter text changes
 
     // Image cache - persists across list refreshes, keyed by map ID
     std::map<std::string, std::shared_ptr<ImageWrapper>> workshopImageCache;

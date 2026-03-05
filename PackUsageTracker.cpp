@@ -8,8 +8,7 @@
 
 using json = nlohmann::json;
 
-PackUsageTracker::PackUsageTracker(const std::filesystem::path& statsFilePath)
-    : filePath(statsFilePath)
+PackUsageTracker::PackUsageTracker(const std::filesystem::path& statsFilePath) : filePath(statsFilePath)
 {
     LoadStats();
 }
@@ -17,7 +16,7 @@ PackUsageTracker::PackUsageTracker(const std::filesystem::path& statsFilePath)
 void PackUsageTracker::LoadStats()
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    
+
     if (!std::filesystem::exists(filePath)) {
         isFirstRun = true;
         return;
@@ -36,15 +35,14 @@ void PackUsageTracker::LoadStats()
                 s.code = item.value("code", "");
                 s.loadCount = item.value("loadCount", 0);
                 s.lastLoadedTimestamp = item.value("lastLoadedTimestamp", 0LL);
-                
+
                 if (!s.code.empty()) {
                     stats[s.code] = s;
                 }
             }
             isFirstRun = stats.empty();
         }
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         LOG("Failed to load pack usage stats: {}", e.what());
     }
 }
@@ -52,18 +50,15 @@ void PackUsageTracker::LoadStats()
 void PackUsageTracker::SaveStats() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    
+
     try {
         json j;
         j["version"] = "1.0.0";
         j["stats"] = json::array();
-        
+
         for (const auto& [code, s] : stats) {
-            j["stats"].push_back({
-                {"code", s.code},
-                {"loadCount", s.loadCount},
-                {"lastLoadedTimestamp", s.lastLoadedTimestamp}
-            });
+            j["stats"].push_back(
+                {{"code", s.code}, {"loadCount", s.loadCount}, {"lastLoadedTimestamp", s.lastLoadedTimestamp}});
         }
 
         std::filesystem::create_directories(filePath.parent_path());
@@ -71,8 +66,7 @@ void PackUsageTracker::SaveStats() const
         if (file.is_open()) {
             file << j.dump(4);
         }
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         LOG("Failed to save pack usage stats: {}", e.what());
     }
 }
@@ -86,19 +80,32 @@ void PackUsageTracker::IncrementLoadCount(const std::string& packCode)
         auto& s = stats[packCode];
         s.code = packCode;
         s.loadCount++;
-        s.lastLoadedTimestamp = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()
-        ).count();
+        s.lastLoadedTimestamp =
+            std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         isFirstRun = false;
     }
-    
+
     SaveStats();
+}
+
+int PackUsageTracker::GetLoadCount(const std::string& packCode) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = stats.find(packCode);
+    return (it != stats.end()) ? it->second.loadCount : 0;
+}
+
+int64_t PackUsageTracker::GetLastPlayedTimestamp(const std::string& packCode) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = stats.find(packCode);
+    return (it != stats.end()) ? it->second.lastLoadedTimestamp : 0;
 }
 
 std::vector<std::string> PackUsageTracker::GetTopUsedCodes(int count) const
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    
+
     std::vector<PackUsageStats> allStats;
     for (const auto& [code, s] : stats) {
         allStats.push_back(s);

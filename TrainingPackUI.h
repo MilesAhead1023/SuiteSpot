@@ -59,6 +59,7 @@ class TrainingPackUI : public BakkesMod::Plugin::PluginWindow
     std::string packDifficultyFilter = "All";
     std::string packTagFilter;
     int packMinShots = 0;
+    int packMaxShots = 50;
     bool packVideoFilter = false;
     int packSortColumn = 0;
     bool packSortAscending = true;
@@ -68,6 +69,7 @@ class TrainingPackUI : public BakkesMod::Plugin::PluginWindow
     std::string lastDifficultyFilter = "All";
     std::string lastTagFilter;
     int lastMinShots = 0;
+    int lastMaxShots = 50;
     bool lastVideoFilter = false;
     int lastSortColumn = 0;
     bool lastSortAscending = true;

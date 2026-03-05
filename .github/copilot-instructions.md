@@ -153,3 +153,9 @@ Testable components (no live game required):
 │   └── pack_usage_stats.json  (user history)
 └── cfg\config.cfg             (CVars persist here)
 ```
+
+## User File Locations
+
+- **Screenshots**: `C:\Users\bmile\Pictures\Screenshots` — when the user says "see recent screenshots", look here.
+- **BakkesMod log**: `C:\Users\bmile\AppData\Roaming\bakkesmod\bakkesmod\bakkesmod.log`
+- **Rocket League log**: `C:\Users\bmile\Documents\My Games\Rocket League\TAGame\Logs\Launch.log`

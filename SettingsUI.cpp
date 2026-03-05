@@ -28,12 +28,6 @@ SettingsUI::SettingsUI(SuiteSpot* plugin) : plugin_(plugin) {}
 // Draws a styled section header: 3px left accent bar + colored label
 static void DrawSectionHeader(const char* label, ImU32 accentColor)
 {
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    ImVec2 p = ImGui::GetCursorScreenPos();
-    float h = ImGui::GetTextLineHeight();
-    dl->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + 3.0f, p.y + h), accentColor, 1.0f);
-    ImGui::Dummy(ImVec2(8.0f, 0.0f));
-    ImGui::SameLine(0, 0);
     ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(accentColor), "%s", label);
 }
 
@@ -252,7 +246,9 @@ void SettingsUI::RenderMainSettingsWindow()
         {
             ImGui::TextColored(accent, ICON_FA_CIRCLE);
             ImGui::SameLine(0, 5);
-            ImGui::TextColored(green, "Mode: %s", modeNames[mapTypeValue]);
+            ImGui::Text("Mode:");
+            ImGui::SameLine(0, 4);
+            ImGui::TextColored(green, "%s", modeNames[mapTypeValue]);
 
             ImGui::SameLine(0, 10);
             ImGui::TextColored(dim, "|");
@@ -320,11 +316,13 @@ void SettingsUI::RenderMainSettingsWindow()
                 ImGui::TextUnformatted("Queue Delay:");
                 ImGui::SameLine(0, 6);
                 ImGui::PushButtonRepeat(true);
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
                 UI::Helpers::InputIntWithRange("##QueueDelay", delayQueueSecValue,
                                                UI::SettingsUI::DELAY_QUEUE_MIN_SECONDS,
                                                UI::SettingsUI::DELAY_QUEUE_MAX_SECONDS, 75.0f,
                                                "suitespot_delay_queue_sec", plugin_->cvarManager, plugin_->gameWrapper,
                                                "Wait before auto-queuing.", nullptr);
+                ImGui::PopStyleVar();
                 ImGui::PopButtonRepeat();
                 ImGui::SameLine(0, 3);
                 ImGui::AlignTextToFramePadding();
@@ -349,8 +347,10 @@ void SettingsUI::RenderMainSettingsWindow()
                 ImGui::TextUnformatted("Map Delay:");
                 ImGui::SameLine(0, 6);
                 ImGui::PushButtonRepeat(true);
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
                 UI::Helpers::InputIntWithRange("##MapDelay", *currentMapDelayValue, 0, 300, 75.0f, currentMapDelayCVar,
                                                plugin_->cvarManager, plugin_->gameWrapper, mapDelayTooltip, nullptr);
+                ImGui::PopStyleVar();
                 ImGui::PopButtonRepeat();
                 ImGui::SameLine(0, 3);
                 ImGui::AlignTextToFramePadding();
@@ -1227,7 +1227,7 @@ std::vector<std::string> SettingsUI::GetQuickPicksList()
 //    700-N = query found at position N in name (earlier = better)
 //    +50 per extra occurrence (frequency bonus)
 //    +100 if author also matches
-static int ScoreResult(const std::string& queryLower, const RLMAPS_MapResult& result)
+static int ScoreResult(const std::string& queryLower, const WorkshopMap& result)
 {
     if (queryLower.empty()) return 1; // No filter: everything passes
 
@@ -1306,8 +1306,16 @@ void SettingsUI::RebuildDisplayList()
     for (auto& [score, idx] : scored)
         displayResultList.push_back(cachedResultList[idx]);
 
-    // Reset selection — position in list may have shifted
+    // Restore selection by ID so clicking a map survives list updates
     selectedBrowserIndex = -1;
+    if (!selectedMapID.empty()) {
+        for (int i = 0; i < (int)displayResultList.size(); ++i) {
+            if (displayResultList[i].ID == selectedMapID) {
+                selectedBrowserIndex = i;
+                break;
+            }
+        }
+    }
 }
 
 void SettingsUI::RenderWorkshopBrowserTab()
@@ -1321,7 +1329,6 @@ void SettingsUI::RenderWorkshopBrowserTab()
 
     static bool pathInit = false;
     if (!pathInit) {
-        // Use the resolved workshop root (from workshopmaploader.cfg or platform defaults)
         std::string defaultPath;
         if (plugin_->mapManager) {
             auto resolved = plugin_->mapManager->ResolveConfiguredWorkshopRoot();
@@ -1332,77 +1339,44 @@ void SettingsUI::RenderWorkshopBrowserTab()
         pathInit = true;
     }
 
-    // Download settings — collapsed by default to save space
-    if (ImGui::CollapsingHeader("Download Settings")) {
-        ImGui::Indent();
-        ImGui::Text("Download to:");
-        ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputText("##WorkshopPath", workshopDownloadPathBuf, IM_ARRAYSIZE(workshopDownloadPathBuf));
-        RenderTextureCheck();
-
-        ImGui::SameLine();
-        bool autoDl = plugin_->settingsSync->IsAutoDownloadTextures();
-        if (ImGui::Checkbox("Auto-Check on Launch", &autoDl)) {
-            UI::Helpers::SetCVarSafely("suitespot_auto_download_textures", autoDl ? 1 : 0, plugin_->cvarManager,
-                                       plugin_->gameWrapper);
-        }
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Automatically check for and download missing textures when the game starts.");
-        }
-        ImGui::Unindent();
-        ImGui::Spacing();
+    // Auto-fetch all maps on first open
+    static bool mapsLoaded = false;
+    if (!mapsLoaded && !plugin_->workshopDownloader->isSearching) {
+        plugin_->workshopDownloader->GetResults("");
+        mapsLoaded = true;
     }
 
-    // API Search — fetches from RLMAPS; input width leaves room for Search button
-    ImGui::Text("Search Maps:");
+    // Local search bar — filters the cached full map list in real time
     {
-        float searchBtnW = ImGui::CalcTextSize("Search").x + ImGui::GetStyle().FramePadding.x * 2.0f;
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - searchBtnW - ImGui::GetStyle().ItemSpacing.x);
+        float clearBtnW = strlen(localFilterBuf) > 0
+                              ? ImGui::CalcTextSize("Clear").x + ImGui::GetStyle().FramePadding.x * 2.0f +
+                                    ImGui::GetStyle().ItemSpacing.x
+                              : 0.0f;
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clearBtnW);
     }
-    bool enterPressed = ImGui::InputTextWithHint("##WorkshopSearch", "Search workshop maps...", workshopSearchBuf,
-                                                 IM_ARRAYSIZE(workshopSearchBuf), ImGuiInputTextFlags_EnterReturnsTrue);
-    ImGui::SameLine();
-
-    if ((ImGui::Button("Search") || enterPressed) && strlen(workshopSearchBuf) > 0) {
-        // Reset local filter when doing a new API search
-        memset(localFilterBuf, 0, sizeof(localFilterBuf));
-        lastLocalFilter.clear();
-        plugin_->workshopDownloader->GetResults(workshopSearchBuf, 1);
+    ImGui::InputTextWithHint("##WorkshopSearch", "Search workshop maps...", localFilterBuf, IM_ARRAYSIZE(localFilterBuf));
+    if (strlen(localFilterBuf) > 0) {
+        ImGui::SameLine();
+        if (ImGui::Button("Clear")) {
+            memset(localFilterBuf, 0, sizeof(localFilterBuf));
+            lastLocalFilter.clear();
+        }
     }
 
-    ImGui::SameLine();
-    if (plugin_->workshopDownloader->RLMAPS_Searching) {
+    // Status line
+    if (plugin_->workshopDownloader->isSearching) {
+        ImGui::SameLine();
         if (ImGui::Button("Stop")) {
             plugin_->workshopDownloader->StopSearch();
+            selectedMapID.clear();
+            selectedBrowserIndex = -1;
+            mapsLoaded = false;
         }
         ImGui::SameLine();
-        ImGui::TextDisabled("Searching...");
+        ImGui::TextDisabled("Loading...");
     } else if (!cachedResultList.empty()) {
-        ImGui::Text("%d / %d maps", (int)displayResultList.size(), (int)cachedResultList.size());
-    }
-
-    // Local filter — re-ranks already-loaded results in real time, no API call
-    if (!cachedResultList.empty()) {
-        ImGui::Spacing();
-        ImGui::Text("Filter & Rank:");
-        {
-            float clearBtnW = ImGui::CalcTextSize("Clear").x + ImGui::GetStyle().FramePadding.x * 2.0f;
-            float w = strlen(localFilterBuf) > 0
-                          ? ImGui::GetContentRegionAvail().x - clearBtnW - ImGui::GetStyle().ItemSpacing.x
-                          : -1.0f;
-            ImGui::SetNextItemWidth(w);
-        }
-        ImGui::InputTextWithHint("##LocalFilter", "Filter & rank by name...", localFilterBuf,
-                                 IM_ARRAYSIZE(localFilterBuf));
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Type to filter and rank results by relevance. Closer matches appear first.");
-        if (strlen(localFilterBuf) > 0) {
-            ImGui::SameLine();
-            if (ImGui::Button("Clear")) {
-                memset(localFilterBuf, 0, sizeof(localFilterBuf));
-                lastLocalFilter.clear();
-            }
-        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("%d / %d maps", (int)displayResultList.size(), (int)cachedResultList.size());
     }
 
     ImGui::Spacing();
@@ -1410,9 +1384,9 @@ void SettingsUI::RenderWorkshopBrowserTab()
     ImGui::Spacing();
 
     // Download progress bar
-    if (plugin_->workshopDownloader->RLMAPS_IsDownloadingWorkshop) {
-        float downloaded = static_cast<float>(plugin_->workshopDownloader->RLMAPS_WorkshopDownload_Progress.load());
-        float fileSize = static_cast<float>(plugin_->workshopDownloader->RLMAPS_WorkshopDownload_FileSize.load());
+    if (plugin_->workshopDownloader->isDownloading) {
+        float downloaded = static_cast<float>(plugin_->workshopDownloader->downloadedBytes.load());
+        float fileSize = static_cast<float>(plugin_->workshopDownloader->downloadFileSize.load());
         float fraction = (fileSize > 0) ? (downloaded / fileSize) : 0.0f;
 
         char label[64];
@@ -1425,7 +1399,7 @@ void SettingsUI::RenderWorkshopBrowserTab()
     }
 
     // Search results
-    RLMAPS_RenderSearchWorkshopResults(workshopDownloadPathBuf);
+    RenderWorkshopResults(workshopDownloadPathBuf);
 
     // Popups - donor pattern: thread sets flag, render loop opens popup
     if (plugin_->workshopDownloader->UserIsChoosingYESorNO) {
@@ -1441,15 +1415,14 @@ void SettingsUI::RenderWorkshopBrowserTab()
     }
 }
 
-void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
+void SettingsUI::RenderWorkshopResults(const char* mapspath)
 {
     if (!plugin_->workshopDownloader) return;
 
-    // Check if API list has changed
     int currentVersion = plugin_->workshopDownloader->listVersion.load();
     if (currentVersion != lastListVersion) {
         std::lock_guard<std::mutex> lock(plugin_->workshopDownloader->resultsMutex);
-        auto& fullList = plugin_->workshopDownloader->RLMAPS_MapResultList;
+        auto& fullList = plugin_->workshopDownloader->mapResults;
         cachedResultList.clear();
         for (auto& result : fullList) {
             // Filter out maps that already exist in the download directory
@@ -1506,6 +1479,7 @@ void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
 
             if (ImGui::Selectable(mapResult.Name.c_str(), isSelected)) {
                 selectedBrowserIndex = i;
+                selectedMapID = mapResult.ID;
             }
 
             if (!hasReleases) {
@@ -1589,7 +1563,7 @@ void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
             bool hasReleases = !mapResult.releases.empty();
             if (hasReleases) {
                 if (ImGui::Button(ICON_FA_DOWNLOAD " Download", ImVec2(0, 26))) {
-                    if (!plugin_->workshopDownloader->RLMAPS_IsDownloadingWorkshop && fs::exists(mapspath)) {
+                    if (!plugin_->workshopDownloader->isDownloading && fs::exists(mapspath)) {
                         ImGui::OpenPopup("Releases");
                     } else if (!fs::exists(mapspath)) {
                         ImGui::OpenPopup("Exists?");
@@ -1613,20 +1587,17 @@ void SettingsUI::RLMAPS_RenderSearchWorkshopResults(const char* mapspath)
     ImGui::EndGroup();
 }
 
-void SettingsUI::RenderReleases(RLMAPS_MapResult mapResult, const char* mapspath)
+void SettingsUI::RenderReleases(WorkshopMap map, const char* mapspath)
 {
     if (ImGui::BeginPopupModal("Releases", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-        for (int releasesIndex = 0; releasesIndex < mapResult.releases.size(); releasesIndex++) {
-            RLMAPS_Release release = mapResult.releases[releasesIndex];
+        for (int releasesIndex = 0; releasesIndex < (int)map.releases.size(); releasesIndex++) {
+            WorkshopRelease release = map.releases[releasesIndex];
 
             if (ImGui::Button(release.tag_name.c_str(), ImVec2(0, 20))) {
-                if (!plugin_->workshopDownloader->RLMAPS_IsDownloadingWorkshop && fs::exists(mapspath)) {
-                    // Donor pattern: spawn thread immediately, it will spin-wait for confirmation
+                if (!plugin_->workshopDownloader->isDownloading && fs::exists(mapspath)) {
                     auto downloader = plugin_->workshopDownloader;
                     std::string path = std::string(mapspath);
-                    std::thread t2([downloader, path, mapResult, release]() {
-                        downloader->RLMAPS_DownloadWorkshop(path, mapResult, release);
-                    });
+                    std::thread t2([downloader, path, map, release]() { downloader->DownloadMap(path, map, release); });
                     t2.detach();
                     ImGui::CloseCurrentPopup();
                 }

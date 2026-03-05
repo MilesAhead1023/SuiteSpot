@@ -11,11 +11,13 @@
 #include "HelpersUI.h"
 #include "bakkesmod/wrappers/http/HttpWrapper.h"
 #include "IMGUI/SuiteSpotIcons.h"
+#include "IMGUI/imgui_rangeslider.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <cstdio>
+#include <ctime>
 #include <fstream>
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -360,8 +362,9 @@ void TrainingPackUI::Render()
     // ── Filter bar (full width above both panels) ─────────────────────────────
     bool filtersChanged = (strcmp(packSearchText, lastSearchText) != 0) ||
                           (packDifficultyFilter != lastDifficultyFilter) || (packTagFilter != lastTagFilter) ||
-                          (packMinShots != lastMinShots) || (packVideoFilter != lastVideoFilter) ||
-                          (packSortColumn != lastSortColumn) || (packSortAscending != lastSortAscending);
+                          (packMinShots != lastMinShots) || (packMaxShots != lastMaxShots) ||
+                          (packVideoFilter != lastVideoFilter) || (packSortColumn != lastSortColumn) ||
+                          (packSortAscending != lastSortAscending);
 
     // Row 1: search + difficulty + tags + has-video + clear
     ImGui::SetNextItemWidth(220.0f);
@@ -412,9 +415,13 @@ void TrainingPackUI::Render()
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Filter by tag");
 
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(130.0f);
-    if (ImGui::SliderInt("Min Shots##filter", &packMinShots, 0, 50)) filtersChanged = true;
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Minimum shots in pack");
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::RangeSliderInt("Shots##filter", &packMinShots, &packMaxShots, 0, 50, "(%d-%d shots)")) {
+        if (packMinShots > packMaxShots) packMaxShots = packMinShots;
+        filtersChanged = true;
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Filter by shot count range (packs with unknown shot count always shown)");
 
     ImGui::SameLine();
     if (ImGui::Checkbox("Has Video", &packVideoFilter)) filtersChanged = true;
@@ -426,6 +433,7 @@ void TrainingPackUI::Render()
         packDifficultyFilter = "All";
         packTagFilter = "";
         packMinShots = 0;
+        packMaxShots = 50;
         packVideoFilter = false;
         filtersChanged = true;
     }
@@ -439,7 +447,7 @@ void TrainingPackUI::Render()
     // ── Rebuild filtered list when needed ────────────────────────────────────
     if (filtersChanged || packsSourceChanged || !packListInitialized) {
         if (manager) {
-            manager->FilterAndSortPacks(packSearchText, packDifficultyFilter, packTagFilter, packMinShots,
+            manager->FilterAndSortPacks(packSearchText, packDifficultyFilter, packTagFilter, packMinShots, packMaxShots,
                                         packVideoFilter, packSortColumn, packSortAscending, filteredPacks);
         } else {
             filteredPacks.clear();
@@ -448,6 +456,7 @@ void TrainingPackUI::Render()
         lastDifficultyFilter = packDifficultyFilter;
         lastTagFilter = packTagFilter;
         lastMinShots = packMinShots;
+        lastMaxShots = packMaxShots;
         lastVideoFilter = packVideoFilter;
         lastSortColumn = packSortColumn;
         lastSortAscending = packSortAscending;
@@ -573,7 +582,10 @@ void TrainingPackUI::Render()
                     ImGui::NextColumn();
 
                     // Shots column
-                    ImGui::Text("%d", pack.shotCount);
+                    if (pack.shotCount > 0)
+                        ImGui::Text("%d", pack.shotCount);
+                    else
+                        ImGui::TextDisabled("-");
                     ImGui::NextColumn();
                 }
             }
@@ -713,12 +725,36 @@ void TrainingPackUI::RenderDetailPanel(const TrainingEntry* pack)
     std::string diff = pack->difficulty.empty() ? "Unranked" : pack->difficulty;
     ImGui::TextColored(DifficultyColor(diff), "%s", diff.c_str());
     ImGui::SameLine();
-    ImGui::TextDisabled(" · %d shots", pack->shotCount);
+    if (pack->shotCount > 0)
+        ImGui::TextDisabled(" · %d shots", pack->shotCount);
+    else
+        ImGui::TextDisabled(" · shots unknown");
 
     // ── Stats row ─────────────────────────────────────────────────────────────
     ImGui::PushStyleColor(ImGuiCol_Text, UI::PackBrowserUI::STATS_COLOR);
-    ImGui::Text("♥ %d  ▶ %d", pack->likes, pack->plays);
+    ImGui::Text("Likes: %d  Plays: %d", pack->likes, pack->plays);
     ImGui::PopStyleColor();
+
+    // ── Personal play count ───────────────────────────────────────────────────
+    if (plugin_->usageTracker) {
+        int myPlays = plugin_->usageTracker->GetLoadCount(pack->code);
+        if (myPlays > 0) {
+            int64_t ts = plugin_->usageTracker->GetLastPlayedTimestamp(pack->code);
+            char dateBuf[32] = {};
+            if (ts > 0) {
+                std::time_t t = static_cast<std::time_t>(ts);
+                std::tm tm_s{};
+                localtime_s(&tm_s, &t);
+                std::strftime(dateBuf, sizeof(dateBuf), "%b %d, %Y", &tm_s);
+            }
+            if (dateBuf[0])
+                ImGui::TextDisabled("You've played this %d time%s (last: %s)", myPlays, myPlays == 1 ? "" : "s", dateBuf);
+            else
+                ImGui::TextDisabled("You've played this %d time%s", myPlays, myPlays == 1 ? "" : "s");
+        } else {
+            ImGui::TextDisabled("You haven't played this yet");
+        }
+    }
 
     // ── Tags ──────────────────────────────────────────────────────────────────
     if (!pack->tags.empty()) {

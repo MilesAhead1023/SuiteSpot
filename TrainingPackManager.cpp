@@ -268,7 +268,7 @@ void TrainingPackManager::UpdateTrainingPackList(const std::filesystem::path& ou
 }
 
 void TrainingPackManager::FilterAndSortPacks(const std::string& searchText, const std::string& difficultyFilter,
-                                             const std::string& tagFilter, int minShots, bool videoFilter,
+                                             const std::string& tagFilter, int minShots, int maxShots, bool videoFilter,
                                              int sortColumn, bool sortAscending, std::vector<TrainingEntry>& out) const
 {
     std::lock_guard<std::mutex> lock(packMutex);
@@ -346,8 +346,11 @@ void TrainingPackManager::FilterAndSortPacks(const std::string& searchText, cons
             if (!hasTag) continue;
         }
 
-        if (pack.shotCount < minShots) {
-            continue;
+        // Unknown shot count (null in JSON → 0): only show when min is 0 (user hasn't restricted range)
+        if (pack.shotCount == 0) {
+            if (minShots > 0) continue;
+        } else {
+            if (pack.shotCount < minShots || pack.shotCount > maxShots) continue;
         }
 
         out.push_back(pack);

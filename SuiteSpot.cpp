@@ -526,17 +526,20 @@ void SuiteSpot::onLoad()
 
     if (settingsSync) {
         settingsSync->RegisterAllCVars(cvarManager);
+        // Restore saved CVar values (hotkeys, etc.) that may have been reset by re-registration on hot-reload.
+        cvarManager->loadCfg("config");
 
-        // Auto-download textures if enabled
-        if (settingsSync->IsAutoDownloadTextures() && textureDownloader) {
+        // Always check workshop textures on launch — required for workshop feature to work
+        if (textureDownloader) {
+            LOG("SuiteSpot: Checking workshop textures...");
             std::vector<std::string> missing = textureDownloader->CheckMissingTextures();
-            if (!missing.empty()) {
-                LOG("SuiteSpot: Missing textures detected. Auto-downloading...");
-                // Clean up any previous download thread
+            if (missing.empty()) {
+                LOG("SuiteSpot: All {} workshop textures present.", textureDownloader->WorkshopTexturesFilesList.size());
+            } else {
+                LOG("SuiteSpot: {} missing texture(s) detected. Auto-downloading...", missing.size());
                 if (textureDownloadThread.joinable()) {
                     textureDownloadThread.join();
                 }
-                // Start managed texture download thread
                 textureDownloadThread = std::thread([this]() { textureDownloader->DownloadAndInstallTextures(); });
             }
         }
@@ -643,11 +646,14 @@ void SuiteSpot::SetImGuiContext(uintptr_t ctx)
 
         // Load clock font — GetFont first (hot-reload: font already in atlas, no rebuild)
         // Falls back to Execute + LoadFont (cold start: defers atlas rebuild to game thread)
+        // Guard inside lambda: Execute may be queued multiple times if SetImGuiContext fires
+        // before the first callback runs; the inner check prevents duplicate atlas rebuilds.
         if (!clockFont) {
             auto gui = gameWrapper->GetGUIManager();
             clockFont = gui.GetFont("suitespot_clock_48");
             if (!clockFont) {
                 gameWrapper->Execute([this](GameWrapper* gw) {
+                    if (clockFont) return; // already loaded by an earlier Execute
                     auto gui = gw->GetGUIManager();
                     auto [res, font] = gui.LoadFont("suitespot_clock_48", "Ubuntu-Regular.ttf", 48);
                     if (res == 2 && font) {
@@ -663,6 +669,7 @@ void SuiteSpot::SetImGuiContext(uintptr_t ctx)
             uiFont = gui.GetFont("suitespot_roboto_14");
             if (!uiFont) {
                 gameWrapper->Execute([this](GameWrapper* gw) {
+                    if (uiFont) return; // already loaded by an earlier Execute
                     auto gui = gw->GetGUIManager();
                     // Base font: Roboto Medium at 14px
                     auto [r1, roboto] = gui.LoadFont("suitespot_roboto_14", "Roboto-Medium.ttf", 14);

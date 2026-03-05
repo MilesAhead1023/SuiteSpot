@@ -32,28 +32,23 @@
 
 class TrainingPackManager
 {
-public:
-    ~TrainingPackManager() {
+  public:
+    ~TrainingPackManager()
+    {
         if (updateThread.joinable()) updateThread.join();
     }
     // Core data operations
     void LoadPacksFromFile(const std::filesystem::path& filePath);
     bool IsCacheStale(const std::filesystem::path& filePath) const;
     std::string GetLastUpdatedTime(const std::filesystem::path& filePath) const;
-    
+
     // Downloads fresh data from online source
-    void UpdateTrainingPackList(const std::filesystem::path& outputPath,
-                                  const std::shared_ptr<GameWrapper>& gameWrapper);
+    void UpdateTrainingPackList(const std::filesystem::path& outputPath, const std::shared_ptr<GameWrapper>& gameWrapper);
 
     // Search and Sort logic
-    void FilterAndSortPacks(const std::string& searchText,
-                          const std::string& difficultyFilter,
-                          const std::string& tagFilter,
-                          int minShots,
-                          bool videoFilter,
-                          int sortColumn,
-                          bool sortAscending,
-                          std::vector<TrainingEntry>& out) const;
+    void FilterAndSortPacks(const std::string& searchText, const std::string& difficultyFilter,
+                            const std::string& tagFilter, int minShots, int maxShots, bool videoFilter, int sortColumn,
+                            bool sortAscending, std::vector<TrainingEntry>& out) const;
 
     // Helper for the UI tag filter
     void BuildAvailableTags(std::vector<std::string>& out) const;
@@ -63,7 +58,7 @@ public:
     bool UpdatePack(const std::string& code, const TrainingEntry& updatedPack);
     void HealPack(const std::string& code, int shots);
     bool DeletePack(const std::string& code);
-    
+
     // Accessors
     const std::vector<TrainingEntry>& GetPacks() const { return RLTraining; }
     int GetPackCount() const { return packCount; }
@@ -71,17 +66,14 @@ public:
     bool IsScrapingInProgress() const { return scrapingInProgress; }
     std::optional<TrainingEntry> GetPackByCode(const std::string& code) const;
 
-private:
+  private:
     void SavePacksToFile(const std::filesystem::path& filePath);
 
     std::vector<TrainingEntry> RLTraining;
-    mutable std::mutex packMutex;  // Protects RLTraining from concurrent access
+    mutable std::mutex packMutex; // Protects RLTraining from concurrent access
     int packCount = 0;
     std::string lastUpdated = "Never";
     bool scrapingInProgress = false;
     std::filesystem::path currentFilePath;
     std::thread updateThread;
 };
-
-
-
