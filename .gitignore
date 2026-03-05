@@ -1,3 +1,6 @@
+# Playwright-cli browser automation artifacts
+.playwright-cli/
+
 # User-specific files
 *.rsuser
 *.suo
