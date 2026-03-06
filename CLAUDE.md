@@ -14,10 +14,10 @@ There are two completely independent build pipelines. They must never be mixed.
 
 | | Local build | CI build (GitHub Actions) |
 |---|---|---|
-| **Where** | `C:\Users\bmile\Source\Repos\SuiteSpot` | GitHub runner (`D:\a\...`) |
-| **Trigger** | Manual (dev machine) | Push / PR to any branch |
+| **Where** | Developer machine | GitHub runner (`D:\a\...`) |
+| **Trigger** | Manual | Push / PR to any branch |
 | **BakkesMod SDK** | `%AppData%\bakkesmod\bakkesmod\bakkesmodsdk` via registry | Cloned into `bakkesmodsdk/` at build time |
-| **vcpkg** | `C:\Users\bmile\vcpkg` (`VCPKG_ROOT` env var) | `C:\vcpkg` (pre-installed on runner) |
+| **vcpkg** | `%VCPKG_ROOT%` env var (local install) | `C:\vcpkg` (pre-installed on runner) |
 | **Post-build** | Hot-reloads plugin into live BakkesMod | No — artifact uploaded only |
 | **Intermediates** | `build\.intermediates\` | Same, but discarded after run |
 | **Output** | `plugins\SuiteSpot.dll` → copied to `%AppData%\bakkesmod` | Uploaded as GitHub Actions artifact |
@@ -44,22 +44,23 @@ For local development, the BakkesMod SDK path is configured in `BakkesMod.props`
 
 ## Architecture
 
-The project uses a **Hub-and-Spoke** pattern where `SuiteSpot.cpp` (the Hub class) orchestrates all functionality:
+The project uses a **Hub-and-Spoke** pattern where `src/SuiteSpot.cpp` (the Hub class) orchestrates all functionality:
 
 ```
-SuiteSpot.cpp (Hub)
-├── AutoLoadFeature     - Post-match automation logic
-├── SettingsSync        - CVar-backed settings management
-├── MapManager          - Workshop map discovery and paths
-├── TrainingPackManager - 2300+ pack database with search/filter
-├── WorkshopDownloader  - RLMAPS API integration for downloads
-├── LoadoutManager      - Car preset management
-├── PackUsageTracker    - Usage statistics for favorites
+src/SuiteSpot.cpp (Hub)
+├── src/core/AutoLoadFeature     - Post-match automation (Freeplay/Training/Workshop)
+├── src/core/SettingsSync        - CVar-backed settings management
+├── src/core/MapManager          - Workshop map discovery and paths
+├── src/core/TrainingPackManager - 2300+ pack database with search/filter
+├── src/core/WorkshopDownloader  - RLMAPS API integration for downloads
+├── src/core/LoadoutManager      - Car preset management
+├── src/core/PackUsageTracker    - Usage statistics for favorites
+├── src/core/TextureDownloader   - Auto-downloads 14 workshop editor textures
 └── UI Components
-    ├── SettingsUI      - F2 menu (tabs: Map Select, Loadout, Workshop)
-    ├── TrainingPackUI  - Floating pack browser window
-    ├── LoadoutUI       - Car preset selection
-    └── StatusMessageUI - Toast notifications
+    ├── src/ui/SettingsUI        - F2 menu (tabs: Map Select, Loadout, Workshop)
+    ├── src/ui/TrainingPackUI    - Floating pack browser window (PluginWindow)
+    ├── src/ui/LoadoutUI         - Car preset selection panel
+    └── src/ui/StatusMessageUI  - Toast notifications (Timer/Fade/ManualDismiss)
 ```
 
 Components don't communicate directly—all coordination flows through the Hub.
@@ -68,13 +69,24 @@ Components don't communicate directly—all coordination flows through the Hub.
 
 | File | Purpose |
 |------|---------|
-| `SuiteSpot.cpp/.h` | Plugin entry point, lifecycle management, event routing |
-| `AutoLoadFeature.cpp/.h` | Core match-end automation with delay scheduling |
-| `SettingsSync.cpp/.h` | CVars (prefixed `suitespot_*`) with change callbacks |
-| `TrainingPackManager.cpp/.h` | JSON database operations, search, filtering |
-| `WorkshopDownloader.cpp/.h` | HTTP requests to RLMAPS API, thread-safe downloads |
-| `MapList.h` | Data structures: `MapEntry`, `TrainingEntry`, `WorkshopEntry` |
-| `ConstantsUI.h` | All UI styling constants (colors, sizes, spacing) |
+| `src/SuiteSpot.cpp/.h` | Plugin entry point, lifecycle management, event routing |
+| `src/core/AutoLoadFeature.cpp/.h` | Core match-end automation with delay scheduling |
+| `src/core/SettingsSync.cpp/.h` | CVars (prefixed `suitespot_*`) with change callbacks |
+| `src/core/TrainingPackManager.cpp/.h` | JSON database operations, search, filtering |
+| `src/core/WorkshopDownloader.cpp/.h` | HTTP requests to RLMAPS API, thread-safe downloads |
+| `src/core/TextureDownloader.cpp/.h` | Background download of 14 workshop editor textures |
+| `src/core/PackUsageTracker.cpp/.h` | Load counts + timestamps, powers favorites ranking |
+| `src/core/LoadoutManager.cpp/.h` | Car preset switching via game-thread Execute() |
+| `src/core/MapList.h` | Data structures: `MapEntry`, `TrainingEntry`, `WorkshopEntry` |
+| `src/core/DefaultPacks.h` | Curated "Flicks Picks" default training pack list |
+| `src/ui/SettingsUI.cpp/.h` | F2 settings menu (Map Select, Loadout, Workshop tabs) |
+| `src/ui/TrainingPackUI.cpp/.h` | Floating pack browser PluginWindow |
+| `src/ui/LoadoutUI.cpp/.h` | Car preset selection panel |
+| `src/ui/StatusMessageUI.cpp/.h` | Reusable toast notification system |
+| `src/ui/ConstantsUI.h` | All UI styling constants (colors, sizes, spacing) |
+| `src/ui/HelpersUI.cpp/.h` | ImGui helper widgets (InputIntWithRange, ComboWithTooltip, etc.) |
+| `src/utils/logging.h` | spdlog-based logging macros |
+| `src/utils/ProcessUtils.h` | Process/path utilities |
 
 ## Technical Patterns
 

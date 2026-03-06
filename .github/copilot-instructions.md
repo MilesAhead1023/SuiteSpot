@@ -1,6 +1,6 @@
 # SuiteSpot — Copilot Instructions
 
-SuiteSpot is a BakkesMod plugin for Rocket League (C++20, Windows x64 DLL) that automatically loads training content after matches end. It uses a **Hub-and-Spoke architecture** orchestrated by `SuiteSpot.cpp`, with components communicating exclusively through the Hub to avoid tight coupling.
+SuiteSpot is a BakkesMod plugin for Rocket League (C++20, Windows x64 DLL) that automatically loads training content after matches end. It uses a **Hub-and-Spoke architecture** orchestrated by `src/SuiteSpot.cpp`, with components communicating exclusively through the Hub to avoid tight coupling.
 
 ## Build & Test Commands
 
@@ -31,19 +31,20 @@ cd tests && make test_training_pack_manager && ./suitespot_tests -t "test_traini
 ## High-Level Architecture
 
 ```
-SuiteSpot.cpp (Hub) — Event dispatcher & lifecycle
-├── AutoLoadFeature        Post-match automation with delay scheduling
-├── SettingsSync           BakkesMod CVar management (suitespot_* prefix)
-├── MapManager             Workshop map discovery
-├── TrainingPackManager    2300+ pack database (JSON), search/filter
-├── WorkshopDownloader     RLMAPS API integration, async downloads
-├── LoadoutManager         Car preset management
-├── PackUsageTracker       Usage stats, favorites, recency scoring
+src/SuiteSpot.cpp (Hub) — Event dispatcher & lifecycle
+├── src/core/AutoLoadFeature     Post-match automation with delay scheduling
+├── src/core/SettingsSync        BakkesMod CVar management (suitespot_* prefix)
+├── src/core/MapManager          Workshop map discovery
+├── src/core/TrainingPackManager 2300+ pack database (JSON), search/filter
+├── src/core/WorkshopDownloader  RLMAPS API integration, async downloads
+├── src/core/LoadoutManager      Car preset management
+├── src/core/PackUsageTracker    Usage stats, favorites, recency scoring
+├── src/core/TextureDownloader   Auto-downloads 14 workshop editor textures
 └── UI Components
-    ├── SettingsUI         F2 menu (tabs: Map Select, Loadout, Workshop)
-    ├── TrainingPackUI     Floating pack browser window
-    ├── LoadoutUI          Car preset selection
-    └── StatusMessageUI    Toast notifications
+    ├── src/ui/SettingsUI        F2 menu (tabs: Map Select, Loadout, Workshop)
+    ├── src/ui/TrainingPackUI    Floating pack browser window (PluginWindow)
+    ├── src/ui/LoadoutUI         Car preset selection
+    └── src/ui/StatusMessageUI  Toast notifications (Timer/Fade/ManualDismiss)
 ```
 
 **Key rule:** Components do NOT communicate directly—all coordination flows through `SuiteSpot` (the Hub). This prevents circular dependencies and makes threading safe.
@@ -55,7 +56,7 @@ Local and CI builds use **different SDK/vcpkg paths** and must never mix.
 | Aspect | Local | CI |
 |--------|-------|-----|
 | SDK | `%AppData%\bakkesmod\bakkesmodsdk` (via registry) | Cloned to `bakkesmodsdk/` |
-| vcpkg | `C:\Users\bmile\vcpkg` (VCPKG_ROOT env var) | `C:\vcpkg` (pre-installed) |
+| vcpkg | `%VCPKG_ROOT%` (local install) | `C:\vcpkg` (pre-installed) |
 | Post-build | Hot-reload into live BakkesMod | DLL uploaded as artifact |
 | Intermediates | `build\.intermediates\` | Discarded after run |
 
@@ -67,7 +68,7 @@ Local and CI builds use **different SDK/vcpkg paths** and must never mix.
 
 Use `gameWrapper->Execute()` to defer operations to the game thread between frames. This prevents crashes from modifying shared state (font atlas, game wrappers) during rendering.
 
-**Pattern (see `LoadoutManager.cpp` for canonical example):**
+**Pattern (see `src/core/LoadoutManager.cpp` for canonical example):**
 ```cpp
 gameWrapper->Execute([this](GameWrapper* gw) {
     // Safe to modify shared state here, runs between game frames
@@ -82,7 +83,7 @@ Use `gameWrapper->SetTimeout()` for delayed execution after match-end (minimum 0
 
 **NEVER** call `GUIManager::LoadFont()` inside render functions or directly in `SetImGuiContext()`. The atlas rebuild crashes the game during rendering.
 
-**Safe pattern (from `SuiteSpot.cpp`):**
+**Safe pattern (from `src/SuiteSpot.cpp`):**
 ```cpp
 // 1. Try GetFont first — survives hot-reload in atlas
 clockFont = gui.GetFont("suitespot_clock_48");
@@ -111,13 +112,21 @@ if (!clockFont) {
 
 | File | Purpose |
 |------|---------|
-| `SuiteSpot.cpp/.h` | Hub: plugin entry, lifecycle, event routing |
-| `AutoLoadFeature.cpp/.h` | Core: post-match automation, delay scheduling |
-| `SettingsSync.cpp/.h` | CVar management (all `suitespot_*` prefix) |
-| `TrainingPackManager.cpp/.h` | JSON database ops, search, filtering, pagination |
-| `WorkshopDownloader.cpp/.h` | HTTP requests (RLMAPS API), thread-safe downloads |
-| `MapList.h` | Data structures: `MapEntry`, `TrainingEntry`, `WorkshopEntry` |
-| `ConstantsUI.h` | All UI styling constants (colors, sizes, spacing) |
+| `src/SuiteSpot.cpp/.h` | Hub: plugin entry, lifecycle, event routing |
+| `src/core/AutoLoadFeature.cpp/.h` | Core: post-match automation, delay scheduling |
+| `src/core/SettingsSync.cpp/.h` | CVar management (all `suitespot_*` prefix) |
+| `src/core/TrainingPackManager.cpp/.h` | JSON database ops, search, filtering, pagination |
+| `src/core/WorkshopDownloader.cpp/.h` | HTTP requests (RLMAPS API), thread-safe downloads |
+| `src/core/TextureDownloader.cpp/.h` | Background download of 14 workshop editor textures |
+| `src/core/PackUsageTracker.cpp/.h` | Load counts + timestamps, powers favorites ranking |
+| `src/core/LoadoutManager.cpp/.h` | Car preset switching via game-thread Execute() |
+| `src/core/MapList.h` | Data structures: `MapEntry`, `TrainingEntry`, `WorkshopEntry` |
+| `src/core/DefaultPacks.h` | Curated "Flicks Picks" default training pack list |
+| `src/ui/SettingsUI.cpp/.h` | F2 settings menu (Map Select, Loadout, Workshop tabs) |
+| `src/ui/TrainingPackUI.cpp/.h` | Floating pack browser PluginWindow |
+| `src/ui/ConstantsUI.h` | All UI styling constants (colors, sizes, spacing) |
+| `src/ui/HelpersUI.cpp/.h` | ImGui helper widgets (InputIntWithRange, ComboWithTooltip, etc.) |
+| `src/utils/logging.h` | spdlog-based logging macros |
 
 ## Dependencies
 
@@ -153,9 +162,3 @@ Testable components (no live game required):
 │   └── pack_usage_stats.json  (user history)
 └── cfg\config.cfg             (CVars persist here)
 ```
-
-## User File Locations
-
-- **Screenshots**: `C:\Users\bmile\Pictures\Screenshots` — when the user says "see recent screenshots", look here.
-- **BakkesMod log**: `C:\Users\bmile\AppData\Roaming\bakkesmod\bakkesmod\bakkesmod.log`
-- **Rocket League log**: `C:\Users\bmile\Documents\My Games\Rocket League\TAGame\Logs\Launch.log`

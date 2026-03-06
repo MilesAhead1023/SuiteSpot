@@ -462,6 +462,10 @@ _codeql_detected_source_root
 # Package manager lock files (use package-lock.json)
 pnpm-lock.yaml
 
+# Node.js AI dev tooling (not part of the plugin)
+package.json
+package-lock.json
+
 # Windows null device (shows as untracked on Windows)
 nul
 

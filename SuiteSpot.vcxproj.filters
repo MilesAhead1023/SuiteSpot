@@ -1,13 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <Filter Include="src">
+      <UniqueIdentifier>{a1b543a5-c4b7-4cf1-8adf-c2f26cf59952}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="src\core">
+      <UniqueIdentifier>{33ae5c6a-718c-410e-bdb8-9c032f65c710}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ui">
+      <UniqueIdentifier>{46d01869-81e6-496b-b2c1-aeeb13d6b983}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\utils">
+      <UniqueIdentifier>{7d2e1f3a-9b5c-4d8e-a1b2-c3d4e5f60718}</UniqueIdentifier>
     </Filter>
     <Filter Include="imgui">
       <UniqueIdentifier>{396e4dda-4fe2-4588-9756-a364a57aa8c1}</UniqueIdentifier>
@@ -21,21 +25,13 @@
     <Filter Include="PCH">
       <UniqueIdentifier>{65407bae-1075-4bdd-9dfd-acc5a636ec02}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Plugin">
-      <UniqueIdentifier>{a1b543a5-c4b7-4cf1-8adf-c2f26cf59952}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Plugin\header">
-      <UniqueIdentifier>{46d01869-81e6-496b-b2c1-aeeb13d6b983}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Plugin\src">
-      <UniqueIdentifier>{33ae5c6a-718c-410e-bdb8-9c032f65c710}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Resource">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <!-- imgui implementation -->
     <ClCompile Include="imgui\imgui.cpp">
       <Filter>imgui\implementation</Filter>
     </ClCompile>
@@ -72,59 +68,64 @@
     <ClCompile Include="IMGUI\imgui_stdlib.cpp">
       <Filter>imgui\implementation</Filter>
     </ClCompile>
+    <!-- PCH -->
     <ClCompile Include="pch.cpp">
       <Filter>PCH</Filter>
     </ClCompile>
-    <ClCompile Include="SuiteSpot.cpp">
-      <Filter>Plugin\src</Filter>
+    <!-- src (Hub + DLL entry) -->
+    <ClCompile Include="src\SuiteSpot.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="Source.cpp">
-      <Filter>Plugin\src</Filter>
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="MapList.cpp">
-      <Filter>Plugin\src</Filter>
+    <!-- src\core -->
+    <ClCompile Include="src\core\AutoLoadFeature.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="LoadoutManager.cpp">
-      <Filter>Plugin\src</Filter>
+    <ClCompile Include="src\core\LoadoutManager.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="StatusMessageUI.cpp">
-      <Filter>Plugin\src</Filter>
+    <ClCompile Include="src\core\MapList.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="HelpersUI.cpp">
-      <Filter>Plugin\src</Filter>
+    <ClCompile Include="src\core\MapManager.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="AutoLoadFeature.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\core\PackUsageTracker.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="MapManager.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\core\SettingsSync.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="TrainingPackManager.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\core\TextureDownloader.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="TrainingPackUI.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\core\TrainingPackManager.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="LoadoutUI.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\core\WorkshopDownloader.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="SettingsUI.cpp">
-      <Filter>Source Files</Filter>
+    <!-- src\ui -->
+    <ClCompile Include="src\ui\HelpersUI.cpp">
+      <Filter>src\ui</Filter>
     </ClCompile>
-    <ClCompile Include="SettingsSync.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\ui\LoadoutUI.cpp">
+      <Filter>src\ui</Filter>
     </ClCompile>
-    <ClCompile Include="PackUsageTracker.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\ui\SettingsUI.cpp">
+      <Filter>src\ui</Filter>
     </ClCompile>
-    <ClCompile Include="WorkshopDownloader.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\ui\StatusMessageUI.cpp">
+      <Filter>src\ui</Filter>
     </ClCompile>
-    <ClCompile Include="TextureDownloader.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\ui\TrainingPackUI.cpp">
+      <Filter>src\ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <!-- imgui headers -->
     <ClInclude Include="imgui\imgui_rangeslider.h">
       <Filter>imgui\headers</Filter>
     </ClInclude>
@@ -164,71 +165,80 @@
     <ClInclude Include="imgui\imgui_internal.h">
       <Filter>imgui\headers</Filter>
     </ClInclude>
-    <ClInclude Include="version.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="IMGUI\imgui_stdlib.h">
       <Filter>imgui\headers</Filter>
     </ClInclude>
+    <!-- PCH -->
     <ClInclude Include="pch.h">
       <Filter>PCH</Filter>
     </ClInclude>
-    <ClInclude Include="SuiteSpot.h">
-      <Filter>Plugin\header</Filter>
+    <!-- Root headers -->
+    <ClInclude Include="version.h">
+      <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="StatusMessageUI.h">
-      <Filter>Plugin\header</Filter>
+    <!-- src headers -->
+    <ClInclude Include="src\SuiteSpot.h">
+      <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="ConstantsUI.h">
-      <Filter>Plugin\header</Filter>
+    <!-- src\core headers -->
+    <ClInclude Include="src\core\AutoLoadFeature.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="HelpersUI.h">
-      <Filter>Plugin\header</Filter>
+    <ClInclude Include="src\core\DefaultPacks.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="MapList.h">
-      <Filter>Plugin\header</Filter>
+    <ClInclude Include="src\core\EmbeddedPackGrabber.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="LoadoutManager.h">
-      <Filter>Plugin\header</Filter>
+    <ClInclude Include="src\core\LoadoutManager.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="AutoLoadFeature.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\MapList.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="EmbeddedPackGrabber.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\MapManager.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="logging.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\PackUsageTracker.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="MapManager.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\SettingsSync.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="PackUsageTracker.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\TextureDownloader.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="DefaultPacks.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\TrainingPackManager.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="TrainingPackManager.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\WorkshopDownloader.h">
+      <Filter>src\core</Filter>
     </ClInclude>
-    <ClInclude Include="TrainingPackUI.h">
-      <Filter>Header Files</Filter>
+    <!-- src\ui headers -->
+    <ClInclude Include="src\ui\ConstantsUI.h">
+      <Filter>src\ui</Filter>
     </ClInclude>
-    <ClInclude Include="LoadoutUI.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\ui\HelpersUI.h">
+      <Filter>src\ui</Filter>
     </ClInclude>
-    <ClInclude Include="SettingsUI.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\ui\LoadoutUI.h">
+      <Filter>src\ui</Filter>
     </ClInclude>
-    <ClInclude Include="SettingsSync.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\ui\SettingsUI.h">
+      <Filter>src\ui</Filter>
     </ClInclude>
-    <ClInclude Include="WorkshopDownloader.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\ui\StatusMessageUI.h">
+      <Filter>src\ui</Filter>
     </ClInclude>
-    <ClInclude Include="TextureDownloader.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\ui\TrainingPackUI.h">
+      <Filter>src\ui</Filter>
+    </ClInclude>
+    <!-- src\utils headers -->
+    <ClInclude Include="src\utils\logging.h">
+      <Filter>src\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utils\ProcessUtils.h">
+      <Filter>src\utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -27,7 +27,7 @@
  *    - This class is special because it acts as BOTH the "Settings Tab" (inside F2 menu)
  *      AND the "Window Manager" for our pop-up browser.
  *    - It uses a "Hybrid Rendering" trick to keep the browser window open even when F2 is closed.
- *      (See `docs/development/thread-safe-imgui.md` for the technical details).
+ *      (See `docs/architecture.md` for the technical details).
  */
 
 #include "bakkesmod/plugin/bakkesmodplugin.h"

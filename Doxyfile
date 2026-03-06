@@ -9,7 +9,7 @@ OUTPUT_DIRECTORY       = docs/doxygen
 CREATE_SUBDIRS         = NO
 
 # Input
-INPUT                  = . IMGUI
+INPUT                  = src IMGUI
 FILE_PATTERNS          = *.cpp *.h
 EXCLUDE                = tests/ build/ plugins/ node_modules/ docs/
 EXCLUDE_PATTERNS       = */imgui_impl_* */imgui_demo* */imgui_draw* \
