@@ -311,7 +311,6 @@ void WorkshopDownloader::StopSearch()
         listVersion++;
     }
 
-    resultsCV.notify_all();
     isSearching = false;
     LOG("Search stopped.");
 }

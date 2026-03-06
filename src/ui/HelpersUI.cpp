@@ -95,67 +95,6 @@ bool ButtonWithTooltip(const char* label, const char* tooltip, const ImVec2& siz
 }
 
 //
-// ShowStatusMessage - Auto-fading status message
-//
-void ShowStatusMessage(const std::string& text, const ImVec4& color, float& timer, float deltaTime)
-{
-    // Only show the message if there's time remaining on the timer
-    // Once timer hits 0, the message disappears
-    if (timer > 0.0f && !text.empty()) {
-        // Add some spacing before the message for visual separation
-        ImGui::Spacing();
-
-        // Display the message in the specified color
-        // %s means "insert the text here"
-        ImGui::TextColored(color, "%s", text.c_str());
-
-        // Count down the timer using the time that passed since last frame
-        // deltaTime is usually 0.016 seconds (1/60th of a second at 60 FPS)
-        timer -= deltaTime;
-
-        // If timer went negative, clamp it to exactly 0
-        // This prevents weird negative timer values
-        if (timer <= 0.0f) {
-            timer = 0.0f;
-        }
-    }
-}
-
-//
-// ShowStatusMessageWithFade - Status message with smooth transparency fade
-//
-void ShowStatusMessageWithFade(const std::string& text, const ImVec4& baseColor, float& timer, float maxDuration,
-                               float deltaTime)
-{
-    // Only show the message if there's time remaining
-    if (timer > 0.0f && !text.empty()) {
-        // Add some spacing for visual separation
-        ImGui::Spacing();
-
-        // Calculate how transparent the text should be based on remaining time
-        // If timer = maxDuration (full time left), alpha = 1.0 (fully visible)
-        // If timer = 0 (no time left), alpha = 0.0 (fully transparent)
-        // This creates a smooth fade-out effect
-        float alpha = timer / maxDuration;
-
-        // Create a faded version of the color with the calculated alpha
-        // Keep RGB the same, just change the transparency
-        ImVec4 fadedColor = ImVec4(baseColor.x, baseColor.y, baseColor.z, alpha);
-
-        // Display the message with the faded color
-        ImGui::TextColored(fadedColor, "%s", text.c_str());
-
-        // Count down the timer
-        timer -= deltaTime;
-
-        // Clamp timer to 0 if it went negative
-        if (timer <= 0.0f) {
-            timer = 0.0f;
-        }
-    }
-}
-
-//
 // CheckboxWithCVar - Checkbox that automatically saves to settings
 //
 bool CheckboxWithCVar(const char* label, bool& value, const char* cvarName,

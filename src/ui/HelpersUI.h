@@ -75,17 +75,6 @@ bool ComboWithTooltip(const char* label, const char* previewValue, const char* t
 bool ButtonWithTooltip(const char* label, const char* tooltip, const ImVec2& size = ImVec2(0, 0));
 
 //
-// ShowStatusMessage - Displays a message that automatically fades out
-//
-void ShowStatusMessage(const std::string& text, const ImVec4& color, float& timer, float deltaTime);
-
-//
-// ShowStatusMessageWithFade - Status message with smooth alpha fade-out
-//
-void ShowStatusMessageWithFade(const std::string& text, const ImVec4& baseColor, float& timer, float maxDuration,
-                               float deltaTime);
-
-//
 // CheckboxWithCVar - Creates a checkbox that automatically saves to settings
 //
 bool CheckboxWithCVar(const char* label, bool& value, const char* cvarName,

@@ -111,9 +111,6 @@ class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
     std::filesystem::path GetTrainingPacksPath() const;
     void UpdateTrainingPackList();
     void LoadTrainingPacksFromFile(const std::filesystem::path& filePath);
-    bool IsTrainingPackCacheStale() const;
-    std::string FormatLastUpdatedTime() const;
-
     bool IsEnabled() const;
     bool IsAutoQueueEnabled() const;
     bool IsTrainingGameSpeedFixEnabled() const;
@@ -150,9 +147,7 @@ class SuiteSpot final : public BakkesMod::Plugin::BakkesModPlugin,
     float officialTrainingGameSpeed = 1.0f;
     uintptr_t imgui_ctx = 0;
     ImFont* clockFont = nullptr;
-    ImFont* uiFont = nullptr;   // Roboto-Medium 14px
-    ImFont* iconFont = nullptr; // FA5 Solid 14px (separate; BakkasMod ignores MergeMode)
-    std::atomic<bool> isRenderingSettings{false};
+    ImFont* uiFont = nullptr;          // Roboto-Medium 14px
     std::thread textureDownloadThread; // Managed texture download thread
 
     // Hotkey capture state

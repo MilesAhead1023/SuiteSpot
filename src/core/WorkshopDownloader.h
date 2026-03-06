@@ -12,7 +12,6 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
-#include <condition_variable>
 
 namespace fs = std::filesystem;
 
@@ -23,7 +22,6 @@ struct WorkshopRelease
     std::string description;
     std::string zipName;
     std::string downloadLink;
-    std::string pictureLink;
 };
 
 struct WorkshopMap
@@ -86,7 +84,6 @@ class WorkshopDownloader : public std::enable_shared_from_this<WorkshopDownloade
     std::string apiBase = "https://bakkesplugins.com/api/rocket-league-maps";
 
     mutable std::mutex resultsMutex;
-    std::condition_variable resultsCV;
     std::atomic<int> completedRequests = 0;
     std::atomic<int> completedResults = 0;
     std::atomic<int> expectedResults = 0;

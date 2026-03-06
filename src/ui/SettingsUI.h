@@ -76,7 +76,6 @@ class SettingsUI
     std::string workshopPathCache = "";
 
     // Workshop browser state
-    char workshopSearchBuf[256] = {0}; // kept for legacy/unused
     char workshopDownloadPathBuf[512] = {0};
 
     // Workshop local browser state (two-panel layout)

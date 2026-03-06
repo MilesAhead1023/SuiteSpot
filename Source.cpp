@@ -20,16 +20,15 @@
 // DO NOT CHANGE: Rendering flow, label strings, and cvar names are
 // relied upon by external automation and saved settings; altering them
 // will change user-visible state persistence and CLI integrations.
-void SuiteSpot::RenderSettings() {
-    isRenderingSettings = true;
+void SuiteSpot::RenderSettings()
+{
     // 1. Render the main settings UI
     if (settingsUI) {
         settingsUI->RenderMainSettingsWindow();
     }
-    
+
     // 2. Render browser if open (Since RegisterDrawable is blocked)
     if (isBrowserOpen && trainingPackUI) {
         trainingPackUI->Render();
     }
-    isRenderingSettings = false;
 }

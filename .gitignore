@@ -1,3 +1,7 @@
+# Node/AI dev tool lockfiles (not part of C++ build)
+pnpm-lock.yaml
+package-lock.json
+
 # Playwright-cli browser automation artifacts
 .playwright-cli/
 

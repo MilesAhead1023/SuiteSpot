@@ -246,14 +246,6 @@ void SuiteSpot::LoadHooks()
         gameWrapper->SetTimeout([this](GameWrapper* gw) { TryHealCurrentPack(gw); }, 1.5f);
     });
 
-    // Hook: Shot attempt started (player moves)
-    // This fires when switching shots and player starts moving
-    gameWrapper->HookEventPost("Function TAGame.TrainingEditorMetrics_TA.TrainingShotAttempt",
-                               [this](std::string eventName) {
-                                   LOG("Hook triggered: TrainingEditorMetrics_TA.TrainingShotAttempt");
-                                   // Note: This hook exists but is not currently used for auto-heal
-                               });
-
     // Manual heal command
     cvarManager->registerNotifier(
         "ss_heal_current_pack", [this](std::vector<std::string> args) { TryHealCurrentPack(gameWrapper.get()); },
@@ -590,7 +582,6 @@ void SuiteSpot::onUnload()
     // STEP 3: Unhook all game events (CRITICAL - SDK requirement)
     gameWrapper->UnhookEventPost("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded");
     gameWrapper->UnhookEventPost("Function TAGame.GameEvent_TrainingEditor_TA.OnInit");
-    gameWrapper->UnhookEventPost("Function TAGame.TrainingEditorMetrics_TA.TrainingShotAttempt");
     gameWrapper->UnhookEvent("Function TAGame.GameViewportClient_TA.HandleKeyPress");
     LOG("Event hooks removed");
 
