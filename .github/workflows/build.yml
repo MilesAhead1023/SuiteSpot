@@ -65,22 +65,41 @@ jobs:
 
 
     - name: Prepare build artifacts
+      shell: pwsh
       run: |
-        # Create artifacts/plugins directory
-        New-Item -ItemType Directory -Force -Path "artifacts/plugins"
+        # Mirror the BakkesMod data directory layout so the zip can be extracted
+        # directly into %APPDATA%\bakkesmod\bakkesmod\
 
-        if (Test-Path "plugins") {
-          Get-ChildItem -Path "plugins" -Include "*.dll", "*.pdb" -Recurse | ForEach-Object {
-            Copy-Item $_.FullName -Destination "artifacts/plugins" -Force
-          }
-        }
+        # plugins/SuiteSpot.dll
+        New-Item -ItemType Directory -Force -Path "artifacts/plugins" | Out-Null
+        Get-ChildItem -Path "plugins" -Include "*.dll","*.pdb" -Recurse |
+          ForEach-Object { Copy-Item $_.FullName -Destination "artifacts/plugins" -Force }
 
-        if (Test-Path "data") {
-          Copy-Item -Path "data" -Destination "artifacts/data" -Recurse -Force
-        }
+        # data/fonts/
+        New-Item -ItemType Directory -Force -Path "artifacts/data/fonts" | Out-Null
+        Copy-Item -Path "assets/fonts/*" -Destination "artifacts/data/fonts" -Force
+
+        # data/SuiteSpot/Resources/Icons/
+        New-Item -ItemType Directory -Force -Path "artifacts/data/SuiteSpot/Resources/Icons" | Out-Null
+        Copy-Item -Path "assets/icons/*" -Destination "artifacts/data/SuiteSpot/Resources/Icons" -Force
+
+        # data/SuiteSpot/Resources/logos/
+        New-Item -ItemType Directory -Force -Path "artifacts/data/SuiteSpot/Resources/logos" | Out-Null
+        Copy-Item -Path "assets/logos/*" -Destination "artifacts/data/SuiteSpot/Resources/logos" -Force
+
+        # data/SuiteSpot/Resources/NoPreview.jpg
+        Copy-Item -Path "assets/images/NoPreview.jpg" -Destination "artifacts/data/SuiteSpot/Resources" -Force
+
+        # data/SuiteSpot/TrainingSuite/training_packs.json
+        New-Item -ItemType Directory -Force -Path "artifacts/data/SuiteSpot/TrainingSuite" | Out-Null
+        Copy-Item -Path "assets/data/training_packs.json" -Destination "artifacts/data/SuiteSpot/TrainingSuite" -Force
+
+        # data/SuiteSpot/Workshop/NoPreview.jpg
+        New-Item -ItemType Directory -Force -Path "artifacts/data/SuiteSpot/Workshop" | Out-Null
+        Copy-Item -Path "assets/images/NoPreview.jpg" -Destination "artifacts/data/SuiteSpot/Workshop" -Force
 
         Write-Host "Artifacts contents:"
-        Get-ChildItem -Path "artifacts" -Recurse
+        Get-ChildItem -Path "artifacts" -Recurse | Select-Object FullName
 
     - name: Create release archive
       run: |
