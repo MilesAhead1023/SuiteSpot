@@ -98,7 +98,7 @@ Components don't communicate directly—all coordination flows through the Hub.
 
 **Settings Persistence:** All settings use BakkesMod CVars with `.addOnValueChanged()` callbacks for immediate sync. CVars auto-persist to `config.cfg`.
 
-**UI Framework:** ImGui 1.75 with DirectX 11 backend. Custom widgets in `imgui/` folder (range sliders, searchable combos, timeline).
+**UI Framework:** ImGui 1.75 with DirectX 11 backend. Vendor + extension widgets in `external/imgui/` (range sliders, searchable combos, timeline).
 
 ### Font Loading (CRITICAL — crashes if done wrong)
 

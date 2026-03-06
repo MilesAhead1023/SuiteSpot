@@ -10,11 +10,13 @@ package-lock.json
 
 # Session planning/verification artifacts (not project docs)
 docs/plans/
-docs/verification-results/
-docs/gui-editor/
-docs/development/
-docs/LOGIC_MAP.md
+docs/verification/
+docs/experiments/
+docs/architecture/logic-map.md
 docs/env-setup-prompt.md
+
+# Generated AI codebase dump
+docs/repomix-output.md
 
 # User-specific files
 *.rsuser

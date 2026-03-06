@@ -5,7 +5,7 @@
 
 set -e
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h)$' | grep -v '^IMGUI/' | grep -v '^imgui/' || true)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h)$' | grep -v '^external/imgui/' || true)
 
 if [ -z "$STAGED" ]; then
     exit 0

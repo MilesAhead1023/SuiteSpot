@@ -133,7 +133,7 @@ if (!clockFont) {
 - **BakkesMod SDK:** Game hooks, CVars, ImGui integration (Windows x64, header-only)
 - **vcpkg packages:** sqlite3, spdlog, fmt, nlohmann-json, openssl, ixwebsocket
 - **RLMAPS API:** `https://celab.jetfox.ovh/api/v4/projects/` for workshop downloads
-- **ImGui:** 1.75 with DirectX 11, custom widgets in `IMGUI/` folder
+- **ImGui:** 1.75 with DirectX 11, vendor + extension widgets in `external/imgui/` folder
 
 ## Testing
 
