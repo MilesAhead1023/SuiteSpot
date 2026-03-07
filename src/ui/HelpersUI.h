@@ -15,7 +15,7 @@
 // This makes the code easier to read, maintain, and less error-prone.
 
 #include "bakkesmod/plugin/bakkesmodplugin.h"
-#include "IMGUI/imgui.h"
+#include "imgui.h"
 #include <string>
 
 namespace UI {

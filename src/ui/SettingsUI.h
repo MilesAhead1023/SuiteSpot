@@ -1,5 +1,5 @@
 #pragma once
-#include "IMGUI/imgui.h"
+#include "imgui.h"
 #include "StatusMessageUI.h"
 #include "WorkshopDownloader.h"
 #include <string>

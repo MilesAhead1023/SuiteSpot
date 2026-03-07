@@ -3,7 +3,7 @@
 #include "bakkesmod/wrappers/http/HttpWrapper.h"
 #include "MapList.h"
 #include "logging.h"
-#include "IMGUI/json.hpp"
+#include <nlohmann/json.hpp>
 #include <filesystem>
 #include <string>
 #include <vector>

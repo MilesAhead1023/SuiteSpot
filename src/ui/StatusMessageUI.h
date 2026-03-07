@@ -23,7 +23,7 @@
 //
 // The class handles all the timer logic, color management, and display automatically.
 
-#include "IMGUI/imgui.h"
+#include "imgui.h"
 #include <string>
 
 namespace UI {

@@ -1,17 +1,18 @@
 #pragma once
-#include "IMGUI/imgui.h"
+#include "imgui.h"
 #include "StatusMessageUI.h"
 #include <string>
 #include <vector>
 
 class SuiteSpot;
 
-class LoadoutUI {
-public:
+class LoadoutUI
+{
+  public:
     explicit LoadoutUI(SuiteSpot* plugin);
     void RenderLoadoutControls();
 
-private:
+  private:
     SuiteSpot* plugin_;
 
     UI::StatusMessage loadoutStatus;

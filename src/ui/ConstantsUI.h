@@ -1,5 +1,5 @@
 #pragma once
-#include "IMGUI/imgui.h"
+#include "imgui.h"
 
 // Centralized UI constants for SuiteSpot plugin
 // Each constant is named specifically for the UI element it controls

@@ -10,8 +10,8 @@
 #include "ConstantsUI.h"
 #include "HelpersUI.h"
 #include "bakkesmod/wrappers/http/HttpWrapper.h"
-#include "IMGUI/SuiteSpotIcons.h"
-#include "IMGUI/imgui_rangeslider.h"
+#include "SuiteSpotIcons.h"
+#include "imgui_rangeslider.h"
 
 #include <algorithm>
 #include <cmath>

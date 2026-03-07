@@ -12,10 +12,10 @@
 #include <memory>
 #include <filesystem>
 
-#include "IMGUI/imgui.h"
-#include "IMGUI/imgui_stdlib.h"
-#include "IMGUI/imgui_searchablecombo.h"
-#include "IMGUI/imgui_rangeslider.h"
-#include "IMGUI/json.hpp"
+#include "imgui.h"
+#include "imgui_stdlib.h"
+#include "imgui_searchablecombo.h"
+#include "imgui_rangeslider.h"
+#include <nlohmann/json.hpp>
 
 #include "logging.h"

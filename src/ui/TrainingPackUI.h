@@ -1,5 +1,5 @@
 #pragma once
-#include "IMGUI/imgui.h"
+#include "imgui.h"
 #include "bakkesmod/plugin/pluginwindow.h"
 #include "MapList.h"
 #include "StatusMessageUI.h"

@@ -13,9 +13,9 @@
 #include "DefaultPacks.h"
 #include "bakkesmod/wrappers/GuiManagerWrapper.h"
 
-#include "IMGUI/imguivariouscontrols.h"
-#include "IMGUI/imgui_searchablecombo.h"
-#include "IMGUI/SuiteSpotIcons.h"
+#include "imguivariouscontrols.h"
+#include "imgui_searchablecombo.h"
+#include "SuiteSpotIcons.h"
 
 #include <algorithm>
 #include <fstream>
