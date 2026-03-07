@@ -181,7 +181,7 @@ Two completely independent pipelines. Never mix SDK/vcpkg paths between them.
 | Aspect | Local | CI (GitHub Actions) |
 |--------|-------|---------------------|
 | SDK location | `%AppData%\bakkesmod\bakkesmodsdk` via registry | Cloned to `bakkesmodsdk/` |
-| vcpkg | `%VCPKG_ROOT%` (local install) | `C:\vcpkg` (pre-installed on runner) |
+| vcpkg | `%VCPKG_ROOT%` (local install, triplet: `x64-windows-static`) | Cloned and bootstrapped fresh each run |
 | Post-build | Hot-reloads into live BakkasMod | DLL uploaded as artifact |
 | Intermediates | `build\.intermediates\` | Discarded after run |
 

@@ -262,14 +262,16 @@ The DLL is output to `plugins\SuiteSpot.dll`. If BakkasMod is running, the post-
 
 ### Dependencies (vcpkg manifest)
 
-vcpkg packages are declared in `vcpkg.json` and installed automatically by MSBuild:
+vcpkg packages are declared in `vcpkg.json` and installed automatically by MSBuild on first build:
 - `sqlite3`, `spdlog`, `fmt`, `nlohmann-json`, `openssl`, `ixwebsocket`
+
+All libraries are statically linked (triplet: `x64-windows-static`), as required by BakkesPlugins.com for plugin submission.
 
 ### CI Build
 
-Every push triggers a GitHub Actions build (`.github/workflows/msbuild.yml`) that:
+Every push triggers a GitHub Actions build (`.github/workflows/build.yml`) that:
 1. Clones the BakkasMod SDK fresh
-2. Restores vcpkg packages from cache
+2. Clones and bootstraps vcpkg fresh, then installs all packages
 3. Builds Release|x64
 4. Uploads `SuiteSpot.dll` as a build artifact
 

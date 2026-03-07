@@ -17,7 +17,7 @@ There are two completely independent build pipelines. They must never be mixed.
 | **Where** | Developer machine | GitHub runner (`D:\a\...`) |
 | **Trigger** | Manual | Push / PR to any branch |
 | **BakkesMod SDK** | `%AppData%\bakkesmod\bakkesmod\bakkesmodsdk` via registry | Cloned into `bakkesmodsdk/` at build time |
-| **vcpkg** | `%VCPKG_ROOT%` env var (local install) | `C:\vcpkg` (pre-installed on runner) |
+| **vcpkg** | `%VCPKG_ROOT%` env var (local install, triplet: `x64-windows-static`) | Cloned and bootstrapped fresh each run |
 | **Post-build** | Hot-reloads plugin into live BakkesMod | No — artifact uploaded only |
 | **Intermediates** | `build\.intermediates\` | Same, but discarded after run |
 | **Output** | `plugins\SuiteSpot.dll` → copied to `%AppData%\bakkesmod` | Uploaded as GitHub Actions artifact |
