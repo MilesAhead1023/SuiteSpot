@@ -61,7 +61,7 @@ class MapManager
     // Note: These methods update internal indices and should be followed by
     // SettingsSync CVar updates to persist the selection
     void CycleMapMode(bool forward); // Cycle between Freeplay/Training/Workshop
-    void CycleMap(bool forward);     // Cycle within current map type
+    void CycleMap(bool forward, const std::vector<TrainingEntry>& trainingPacks); // Cycle within current map type
 
     // Get current indices for cycling
     int GetCurrentMapModeIndex() const { return currentMapModeIndex; }
@@ -71,10 +71,10 @@ class MapManager
 
     // Get the actual code/path for the current selection (use after CycleMap)
     std::string GetCurrentFreeplayCode() const;
-    std::string GetCurrentTrainingCode() const;
+    std::string GetCurrentTrainingCode(const std::vector<TrainingEntry>& trainingPacks) const;
     std::string GetCurrentWorkshopPath() const;
     std::string GetCurrentFreeplayName() const;
-    std::string GetCurrentTrainingName() const;
+    std::string GetCurrentTrainingName(const std::vector<TrainingEntry>& trainingPacks) const;
     std::string GetCurrentWorkshopName() const;
 
   private:

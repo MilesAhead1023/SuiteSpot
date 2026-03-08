@@ -84,8 +84,8 @@ void SuiteSpot::LoadWorkshopMaps()
 {
     if (mapManager) {
         // Load workshop maps without passing an index - the path-based selection persists automatically
-        int unused = 0;
-        mapManager->LoadWorkshopMaps(SuiteWorkshop, unused);
+        int discardedIndex = 0;
+        mapManager->LoadWorkshopMaps(SuiteWorkshop, discardedIndex);
     }
 }
 
@@ -289,15 +289,17 @@ void SuiteSpot::LoadHooks()
                 cvarManager->getCvar("suitespot_map_type").setValue(newMode);
             } else if (check(settingsSync->GetHotkeyCycleMapFwdKey1(), settingsSync->GetHotkeyCycleMapFwdKey2())) {
                 LOG("Hotkey: cycle_map_fwd");
-                mapManager->CycleMap(true);
+                const auto& packs = trainingPackManager->GetPacks();
+                mapManager->CycleMap(true, packs);
                 int mode = mapManager->GetCurrentMapModeIndex();
                 std::string mapName;
                 if (mode == 0) {
                     mapName = mapManager->GetCurrentFreeplayName();
                     cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
                 } else if (mode == 1) {
-                    mapName = mapManager->GetCurrentTrainingName();
-                    cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
+                    mapName = mapManager->GetCurrentTrainingName(packs);
+                    cvarManager->getCvar("suitespot_current_training_code")
+                        .setValue(mapManager->GetCurrentTrainingCode(packs));
                 } else if (mode == 2) {
                     mapName = mapManager->GetCurrentWorkshopName();
                     cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());
@@ -305,15 +307,17 @@ void SuiteSpot::LoadHooks()
                 gameWrapper->Toast("", "Map: " + mapName, "default", 3.5f, ToastType_Info);
             } else if (check(settingsSync->GetHotkeyCycleMapBkKey1(), settingsSync->GetHotkeyCycleMapBkKey2())) {
                 LOG("Hotkey: cycle_map_bk");
-                mapManager->CycleMap(false);
+                const auto& packs = trainingPackManager->GetPacks();
+                mapManager->CycleMap(false, packs);
                 int mode = mapManager->GetCurrentMapModeIndex();
                 std::string mapName;
                 if (mode == 0) {
                     mapName = mapManager->GetCurrentFreeplayName();
                     cvarManager->getCvar("suitespot_current_freeplay_code").setValue(mapManager->GetCurrentFreeplayCode());
                 } else if (mode == 1) {
-                    mapName = mapManager->GetCurrentTrainingName();
-                    cvarManager->getCvar("suitespot_current_training_code").setValue(mapManager->GetCurrentTrainingCode());
+                    mapName = mapManager->GetCurrentTrainingName(packs);
+                    cvarManager->getCvar("suitespot_current_training_code")
+                        .setValue(mapManager->GetCurrentTrainingCode(packs));
                 } else if (mode == 2) {
                     mapName = mapManager->GetCurrentWorkshopName();
                     cvarManager->getCvar("suitespot_current_workshop_path").setValue(mapManager->GetCurrentWorkshopPath());

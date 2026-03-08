@@ -399,7 +399,7 @@ void MapManager::CycleMapMode(bool forward)
     // Caller (SuiteSpot hotkey handler) will update the CVar with currentMapModeIndex
 }
 
-void MapManager::CycleMap(bool forward)
+void MapManager::CycleMap(bool forward, const std::vector<TrainingEntry>& trainingPacks)
 {
     // Cycle through maps within the current mode
     // Get the current list based on current map mode
@@ -410,12 +410,12 @@ void MapManager::CycleMap(bool forward)
         } else {
             currentFreeplayIndex = (currentFreeplayIndex - 1 + SuiteMaps.size()) % SuiteMaps.size();
         }
-    } else if (currentMapModeIndex == 1 && !SuiteTraining.empty()) {
-        // Training packs
+    } else if (currentMapModeIndex == 1 && !trainingPacks.empty()) {
+        // Training packs — use the populated list from TrainingPackManager, not the empty global
         if (forward) {
-            currentTrainingIndex = (currentTrainingIndex + 1) % SuiteTraining.size();
+            currentTrainingIndex = (currentTrainingIndex + 1) % trainingPacks.size();
         } else {
-            currentTrainingIndex = (currentTrainingIndex - 1 + SuiteTraining.size()) % SuiteTraining.size();
+            currentTrainingIndex = (currentTrainingIndex - 1 + trainingPacks.size()) % trainingPacks.size();
         }
     } else if (currentMapModeIndex == 2 && !SuiteWorkshop.empty()) {
         // Workshop maps
@@ -435,10 +435,10 @@ std::string MapManager::GetCurrentFreeplayCode() const
     return "";
 }
 
-std::string MapManager::GetCurrentTrainingCode() const
+std::string MapManager::GetCurrentTrainingCode(const std::vector<TrainingEntry>& trainingPacks) const
 {
-    if (!SuiteTraining.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)SuiteTraining.size())
-        return SuiteTraining[currentTrainingIndex].code;
+    if (!trainingPacks.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)trainingPacks.size())
+        return trainingPacks[currentTrainingIndex].code;
     return "";
 }
 
@@ -456,10 +456,10 @@ std::string MapManager::GetCurrentFreeplayName() const
     return "";
 }
 
-std::string MapManager::GetCurrentTrainingName() const
+std::string MapManager::GetCurrentTrainingName(const std::vector<TrainingEntry>& trainingPacks) const
 {
-    if (!SuiteTraining.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)SuiteTraining.size())
-        return SuiteTraining[currentTrainingIndex].name;
+    if (!trainingPacks.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)trainingPacks.size())
+        return trainingPacks[currentTrainingIndex].name;
     return "";
 }
 
