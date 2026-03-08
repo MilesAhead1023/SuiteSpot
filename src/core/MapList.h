@@ -12,7 +12,7 @@ struct MapEntry
     std::string code;
     std::string name;
 };
-extern std::vector<MapEntry> RLMaps;
+extern std::vector<MapEntry> SuiteMaps;
 
 // Training packs
 struct TrainingEntry
@@ -42,7 +42,7 @@ struct TrainingEntry
     std::shared_ptr<ImageWrapper> thumbnailImage;
     bool isThumbnailRequested = false; // Prevents duplicate HTTP fetches
 };
-extern std::vector<TrainingEntry> RLTraining;
+extern std::vector<TrainingEntry> SuiteTraining;
 
 // Workshop maps
 struct WorkshopEntry
@@ -56,4 +56,4 @@ struct WorkshopEntry
     std::shared_ptr<ImageWrapper> previewImage; // Loaded image
     bool isImageLoaded = false;
 };
-extern std::vector<WorkshopEntry> RLWorkshop;
+extern std::vector<WorkshopEntry> SuiteWorkshop;

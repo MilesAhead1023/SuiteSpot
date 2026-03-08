@@ -14,7 +14,7 @@
 //    consistent. The code uses cvarManager to persist values and also
 //    updates plugin members; changing the order of writes may create
 //    transient inconsistencies visible to users.
-//  - Many UI controls guard against empty lists (e.g., RLTraining) and
+//  - Many UI controls guard against empty lists (e.g., SuiteTraining) and
 //    clamp indices to valid ranges to prevent out-of-bounds access.
 //
 // DO NOT CHANGE: Rendering flow, label strings, and cvar names are

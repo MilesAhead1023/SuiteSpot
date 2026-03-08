@@ -403,26 +403,26 @@ void MapManager::CycleMap(bool forward)
 {
     // Cycle through maps within the current mode
     // Get the current list based on current map mode
-    if (currentMapModeIndex == 0 && !RLMaps.empty()) {
+    if (currentMapModeIndex == 0 && !SuiteMaps.empty()) {
         // Freeplay maps
         if (forward) {
-            currentFreeplayIndex = (currentFreeplayIndex + 1) % RLMaps.size();
+            currentFreeplayIndex = (currentFreeplayIndex + 1) % SuiteMaps.size();
         } else {
-            currentFreeplayIndex = (currentFreeplayIndex - 1 + RLMaps.size()) % RLMaps.size();
+            currentFreeplayIndex = (currentFreeplayIndex - 1 + SuiteMaps.size()) % SuiteMaps.size();
         }
-    } else if (currentMapModeIndex == 1 && !RLTraining.empty()) {
+    } else if (currentMapModeIndex == 1 && !SuiteTraining.empty()) {
         // Training packs
         if (forward) {
-            currentTrainingIndex = (currentTrainingIndex + 1) % RLTraining.size();
+            currentTrainingIndex = (currentTrainingIndex + 1) % SuiteTraining.size();
         } else {
-            currentTrainingIndex = (currentTrainingIndex - 1 + RLTraining.size()) % RLTraining.size();
+            currentTrainingIndex = (currentTrainingIndex - 1 + SuiteTraining.size()) % SuiteTraining.size();
         }
-    } else if (currentMapModeIndex == 2 && !RLWorkshop.empty()) {
+    } else if (currentMapModeIndex == 2 && !SuiteWorkshop.empty()) {
         // Workshop maps
         if (forward) {
-            currentWorkshopIndex = (currentWorkshopIndex + 1) % RLWorkshop.size();
+            currentWorkshopIndex = (currentWorkshopIndex + 1) % SuiteWorkshop.size();
         } else {
-            currentWorkshopIndex = (currentWorkshopIndex - 1 + RLWorkshop.size()) % RLWorkshop.size();
+            currentWorkshopIndex = (currentWorkshopIndex - 1 + SuiteWorkshop.size()) % SuiteWorkshop.size();
         }
     }
     // Caller (SuiteSpot hotkey handler) will update the appropriate CVar
@@ -430,42 +430,42 @@ void MapManager::CycleMap(bool forward)
 
 std::string MapManager::GetCurrentFreeplayCode() const
 {
-    if (!RLMaps.empty() && currentFreeplayIndex >= 0 && currentFreeplayIndex < (int)RLMaps.size())
-        return RLMaps[currentFreeplayIndex].code;
+    if (!SuiteMaps.empty() && currentFreeplayIndex >= 0 && currentFreeplayIndex < (int)SuiteMaps.size())
+        return SuiteMaps[currentFreeplayIndex].code;
     return "";
 }
 
 std::string MapManager::GetCurrentTrainingCode() const
 {
-    if (!RLTraining.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)RLTraining.size())
-        return RLTraining[currentTrainingIndex].code;
+    if (!SuiteTraining.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)SuiteTraining.size())
+        return SuiteTraining[currentTrainingIndex].code;
     return "";
 }
 
 std::string MapManager::GetCurrentWorkshopPath() const
 {
-    if (!RLWorkshop.empty() && currentWorkshopIndex >= 0 && currentWorkshopIndex < (int)RLWorkshop.size())
-        return RLWorkshop[currentWorkshopIndex].filePath;
+    if (!SuiteWorkshop.empty() && currentWorkshopIndex >= 0 && currentWorkshopIndex < (int)SuiteWorkshop.size())
+        return SuiteWorkshop[currentWorkshopIndex].filePath;
     return "";
 }
 
 std::string MapManager::GetCurrentFreeplayName() const
 {
-    if (!RLMaps.empty() && currentFreeplayIndex >= 0 && currentFreeplayIndex < (int)RLMaps.size())
-        return RLMaps[currentFreeplayIndex].name;
+    if (!SuiteMaps.empty() && currentFreeplayIndex >= 0 && currentFreeplayIndex < (int)SuiteMaps.size())
+        return SuiteMaps[currentFreeplayIndex].name;
     return "";
 }
 
 std::string MapManager::GetCurrentTrainingName() const
 {
-    if (!RLTraining.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)RLTraining.size())
-        return RLTraining[currentTrainingIndex].name;
+    if (!SuiteTraining.empty() && currentTrainingIndex >= 0 && currentTrainingIndex < (int)SuiteTraining.size())
+        return SuiteTraining[currentTrainingIndex].name;
     return "";
 }
 
 std::string MapManager::GetCurrentWorkshopName() const
 {
-    if (!RLWorkshop.empty() && currentWorkshopIndex >= 0 && currentWorkshopIndex < (int)RLWorkshop.size())
-        return RLWorkshop[currentWorkshopIndex].name;
+    if (!SuiteWorkshop.empty() && currentWorkshopIndex >= 0 && currentWorkshopIndex < (int)SuiteWorkshop.size())
+        return SuiteWorkshop[currentWorkshopIndex].name;
     return "";
 }

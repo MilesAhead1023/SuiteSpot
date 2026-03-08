@@ -36,7 +36,6 @@ class SettingsSync
     bool IsTrainingGameSpeedFixEnabled() const { return trainingGameSpeedFixEnabled; }
     int GetQuickPicksListType() const { return quickPicksListType; }
     int GetQuickPicksCount() const { return quickPicksCount; }
-    std::string GetQuickPicksSelected() const { return quickPicksSelected; }
 
     // Delay getters (How long to wait?)
     int GetDelayQueueSec() const { return delayQueueSec; }

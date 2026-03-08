@@ -60,7 +60,7 @@ class TrainingPackManager
     bool DeletePack(const std::string& code);
 
     // Accessors
-    const std::vector<TrainingEntry>& GetPacks() const { return RLTraining; }
+    const std::vector<TrainingEntry>& GetPacks() const { return SuiteTraining; }
     int GetPackCount() const { return packCount; }
     std::string GetLastUpdated() const { return lastUpdated; }
     bool IsScrapingInProgress() const { return scrapingInProgress; }
@@ -69,8 +69,8 @@ class TrainingPackManager
   private:
     void SavePacksToFile(const std::filesystem::path& filePath);
 
-    std::vector<TrainingEntry> RLTraining;
-    mutable std::mutex packMutex; // Protects RLTraining from concurrent access
+    std::vector<TrainingEntry> SuiteTraining;
+    mutable std::mutex packMutex; // Protects SuiteTraining from concurrent access
     int packCount = 0;
     std::string lastUpdated = "Never";
     bool scrapingInProgress = false;

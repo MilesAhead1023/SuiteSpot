@@ -1,5 +1,3 @@
-#include "bakkesmod/wrappers/gfx/GfxDataTrainingWrapper.h"
-#include "bakkesmod/wrappers/GameEvent/SaveData/TrainingEditorSaveDataWrapper.h"
 #include "pch.h"
 #include "TrainingPackManager.h"
 #include "EmbeddedPackGrabber.h"
@@ -14,13 +12,27 @@
 #include <sstream>
 #include <thread>
 
+namespace {
+// Sorts a pack list alphabetically by name, case-insensitive.
+void SortPacksByName(std::vector<TrainingEntry>& packs)
+{
+    std::sort(packs.begin(), packs.end(), [](const TrainingEntry& a, const TrainingEntry& b) {
+        std::string nameA = a.name;
+        std::string nameB = b.name;
+        std::transform(nameA.begin(), nameA.end(), nameA.begin(), [](unsigned char c) { return std::tolower(c); });
+        std::transform(nameB.begin(), nameB.end(), nameB.begin(), [](unsigned char c) { return std::tolower(c); });
+        return nameA < nameB;
+    });
+}
+} // namespace
+
 void TrainingPackManager::LoadPacksFromFile(const std::filesystem::path& filePath)
 {
     if (!std::filesystem::exists(filePath)) {
         LOG("SuiteSpot: Pack cache file not found: {}", filePath.string());
         {
             std::lock_guard<std::mutex> lock(packMutex);
-            RLTraining.clear();
+            SuiteTraining.clear();
             packCount = 0;
         }
         lastUpdated = "Never";
@@ -39,7 +51,7 @@ void TrainingPackManager::LoadPacksFromFile(const std::filesystem::path& filePat
         file.close();
 
         std::lock_guard<std::mutex> lock(packMutex);
-        RLTraining.clear();
+        SuiteTraining.clear();
 
         if (!jsonData.contains("packs") || !jsonData["packs"].is_array()) {
             LOG("SuiteSpot: Invalid Pack cache file format - missing 'packs' array");
@@ -115,20 +127,12 @@ void TrainingPackManager::LoadPacksFromFile(const std::filesystem::path& filePat
                 entry.isModified = pack["isModified"].get<bool>();
             }
 
-            RLTraining.push_back(entry);
+            SuiteTraining.push_back(entry);
         }
 
-        // Sort RLTraining alphabetically by name
-        std::sort(RLTraining.begin(), RLTraining.end(), [](const TrainingEntry& a, const TrainingEntry& b) {
-            // Case-insensitive comparison for names
-            std::string nameA = a.name;
-            std::string nameB = b.name;
-            std::transform(nameA.begin(), nameA.end(), nameA.begin(), [](unsigned char c) { return std::tolower(c); });
-            std::transform(nameB.begin(), nameB.end(), nameB.begin(), [](unsigned char c) { return std::tolower(c); });
-            return nameA < nameB;
-        });
+        SortPacksByName(SuiteTraining);
 
-        packCount = static_cast<int>(RLTraining.size());
+        packCount = static_cast<int>(SuiteTraining.size());
         lastUpdated = GetLastUpdatedTime(filePath);
         currentFilePath = filePath;
 
@@ -138,7 +142,7 @@ void TrainingPackManager::LoadPacksFromFile(const std::filesystem::path& filePat
         LOG("SuiteSpot: Error loading training packs: {}", std::string(e.what()));
         {
             std::lock_guard<std::mutex> lock(packMutex);
-            RLTraining.clear();
+            SuiteTraining.clear();
             packCount = 0;
         }
     }
@@ -278,7 +282,7 @@ void TrainingPackManager::FilterAndSortPacks(const std::string& searchText, cons
     std::transform(searchLower.begin(), searchLower.end(), searchLower.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
-    for (const auto& pack : RLTraining) {
+    for (const auto& pack : SuiteTraining) {
         // Video filter — skip packs without video or gif preview
         if (videoFilter && pack.videoUrl.empty() && pack.gifUrl.empty()) {
             continue;
@@ -418,7 +422,7 @@ void TrainingPackManager::BuildAvailableTags(std::vector<std::string>& out) cons
 {
     std::lock_guard<std::mutex> lock(packMutex);
     std::set<std::string> uniqueTags;
-    for (const auto& pack : RLTraining) {
+    for (const auto& pack : SuiteTraining) {
         for (const auto& tag : pack.tags) {
             uniqueTags.insert(tag);
         }
@@ -446,10 +450,10 @@ void TrainingPackManager::SavePacksToFile(const std::filesystem::path& filePath)
         output["lastUpdated"] = oss.str();
 
         output["source"] = "https://prejump.com/training-packs";
-        output["totalPacks"] = RLTraining.size();
+        output["totalPacks"] = SuiteTraining.size();
 
         nlohmann::json packsArray = nlohmann::json::array();
-        for (const auto& pack : RLTraining) {
+        for (const auto& pack : SuiteTraining) {
             nlohmann::json p;
             p["name"] = pack.name;
             p["code"] = pack.code;
@@ -492,7 +496,7 @@ void TrainingPackManager::SavePacksToFile(const std::filesystem::path& filePath)
 
         currentFilePath = filePath;
         lastUpdated = GetLastUpdatedTime(filePath);
-        LOG("SuiteSpot: Saved {} packs to file", RLTraining.size());
+        LOG("SuiteSpot: Saved {} packs to file", SuiteTraining.size());
 
     } catch (const std::exception& e) {
         LOG("SuiteSpot: Error saving packs: {}", std::string(e.what()));
@@ -504,7 +508,7 @@ bool TrainingPackManager::AddCustomPack(const TrainingEntry& pack)
     {
         std::lock_guard<std::mutex> lock(packMutex);
         // Check for duplicate code
-        for (const auto& existing : RLTraining) {
+        for (const auto& existing : SuiteTraining) {
             if (existing.code == pack.code) {
                 LOG("SuiteSpot: Pack with code {} already exists", pack.code);
                 return false;
@@ -513,18 +517,11 @@ bool TrainingPackManager::AddCustomPack(const TrainingEntry& pack)
 
         TrainingEntry newPack = pack;
         newPack.source = "custom";
-        RLTraining.push_back(newPack);
+        SuiteTraining.push_back(newPack);
 
-        // Sort RLTraining alphabetically by name
-        std::sort(RLTraining.begin(), RLTraining.end(), [](const TrainingEntry& a, const TrainingEntry& b) {
-            std::string nameA = a.name;
-            std::string nameB = b.name;
-            std::transform(nameA.begin(), nameA.end(), nameA.begin(), [](unsigned char c) { return std::tolower(c); });
-            std::transform(nameB.begin(), nameB.end(), nameB.begin(), [](unsigned char c) { return std::tolower(c); });
-            return nameA < nameB;
-        });
+        SortPacksByName(SuiteTraining);
 
-        packCount = static_cast<int>(RLTraining.size());
+        packCount = static_cast<int>(SuiteTraining.size());
         LOG("SuiteSpot: Added custom pack: {}", pack.name);
         // Lock releases here before SavePacksToFile
     }
@@ -540,7 +537,7 @@ bool TrainingPackManager::UpdatePack(const std::string& code, const TrainingEntr
 {
     {
         std::lock_guard<std::mutex> lock(packMutex);
-        for (auto& pack : RLTraining) {
+        for (auto& pack : SuiteTraining) {
             if (pack.code == code) {
                 // Preserve source and update isModified
                 std::string originalSource = pack.source;
@@ -552,16 +549,7 @@ bool TrainingPackManager::UpdatePack(const std::string& code, const TrainingEntr
                     pack.isModified = true;
                 }
 
-                // Sort RLTraining alphabetically by name
-                std::sort(RLTraining.begin(), RLTraining.end(), [](const TrainingEntry& a, const TrainingEntry& b) {
-                    std::string nameA = a.name;
-                    std::string nameB = b.name;
-                    std::transform(nameA.begin(), nameA.end(), nameA.begin(),
-                                   [](unsigned char c) { return std::tolower(c); });
-                    std::transform(nameB.begin(), nameB.end(), nameB.begin(),
-                                   [](unsigned char c) { return std::tolower(c); });
-                    return nameA < nameB;
-                });
+                SortPacksByName(SuiteTraining);
 
                 LOG("SuiteSpot: Updated pack: {}", pack.name);
                 // Lock releases here before SavePacksToFile
@@ -582,13 +570,13 @@ bool TrainingPackManager::DeletePack(const std::string& code)
     std::string name;
     {
         std::lock_guard<std::mutex> lock(packMutex);
-        auto it = std::find_if(RLTraining.begin(), RLTraining.end(),
+        auto it = std::find_if(SuiteTraining.begin(), SuiteTraining.end(),
                                [&code](const TrainingEntry& p) { return p.code == code; });
 
-        if (it != RLTraining.end()) {
+        if (it != SuiteTraining.end()) {
             name = it->name;
-            RLTraining.erase(it);
-            packCount = static_cast<int>(RLTraining.size());
+            SuiteTraining.erase(it);
+            packCount = static_cast<int>(SuiteTraining.size());
 
             LOG("SuiteSpot: Deleted pack: {}", name);
         } else {
@@ -618,7 +606,7 @@ void TrainingPackManager::HealPack(const std::string& code, int shots)
     bool packFound = false;
     {
         std::lock_guard<std::mutex> lock(packMutex);
-        for (auto& pack : RLTraining) {
+        for (auto& pack : SuiteTraining) {
             if (pack.code == code) {
                 packFound = true;
                 // Heal if shot count is missing or incorrect
@@ -648,7 +636,7 @@ void TrainingPackManager::HealPack(const std::string& code, int shots)
 std::optional<TrainingEntry> TrainingPackManager::GetPackByCode(const std::string& code) const
 {
     std::lock_guard<std::mutex> lock(packMutex);
-    for (const auto& pack : RLTraining) {
+    for (const auto& pack : SuiteTraining) {
         if (pack.code == code) {
             return pack;
         }

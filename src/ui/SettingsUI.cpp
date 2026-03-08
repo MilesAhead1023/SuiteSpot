@@ -216,9 +216,9 @@ void SettingsUI::RenderMainSettingsWindow()
 
         // Get current selection
         if (mapTypeValue == 0) {
-            auto it = std::find_if(RLMaps.begin(), RLMaps.end(),
+            auto it = std::find_if(SuiteMaps.begin(), SuiteMaps.end(),
                                    [&](const MapEntry& e) { return e.code == currentFreeplayCode; });
-            if (it != RLMaps.end()) currentMap = it->name;
+            if (it != SuiteMaps.end()) currentMap = it->name;
         } else if (mapTypeValue == 1) {
             std::string targetCode = quickPicksSelectedCode;
             if (targetCode.empty()) targetCode = currentTrainingCode;
@@ -229,9 +229,9 @@ void SettingsUI::RenderMainSettingsWindow()
                 currentMap = targetCode + " (custom)";
             }
         } else if (mapTypeValue == 2) {
-            auto it = std::find_if(RLWorkshop.begin(), RLWorkshop.end(),
+            auto it = std::find_if(SuiteWorkshop.begin(), SuiteWorkshop.end(),
                                    [&](const WorkshopEntry& e) { return e.filePath == currentWorkshopPath; });
-            if (it != RLWorkshop.end()) currentMap = it->name;
+            if (it != SuiteWorkshop.end()) currentMap = it->name;
         }
 
         const ImVec4 green = UI::SettingsUI::STATUS_ENABLED_TEXT_COLOR;
@@ -566,27 +566,27 @@ void SettingsUI::RenderMapSelectionTab(int mapTypeValue, std::string& currentFre
 void SettingsUI::RenderFreeplayMode(std::string& currentFreeplayCode)
 {
     // Initialize to first map if empty and maps are available
-    if (currentFreeplayCode.empty() && !RLMaps.empty()) {
-        currentFreeplayCode = RLMaps[0].code;
+    if (currentFreeplayCode.empty() && !SuiteMaps.empty()) {
+        currentFreeplayCode = SuiteMaps[0].code;
         plugin_->settingsSync->SetCurrentFreeplayCode(currentFreeplayCode);
         plugin_->cvarManager->getCvar("suitespot_current_freeplay_code").setValue(currentFreeplayCode);
     }
 
     // Find current selection index
     int currentIndex = 0;
-    for (int i = 0; i < (int)RLMaps.size(); i++) {
-        if (RLMaps[i].code == currentFreeplayCode) {
+    for (int i = 0; i < (int)SuiteMaps.size(); i++) {
+        if (SuiteMaps[i].code == currentFreeplayCode) {
             currentIndex = i;
             break;
         }
     }
 
-    const char* freeplayLabel = RLMaps.empty() ? "<none>" : RLMaps[currentIndex].name.c_str();
+    const char* freeplayLabel = SuiteMaps.empty() ? "<none>" : SuiteMaps[currentIndex].name.c_str();
 
     // Build names list for SearchableCombo
     std::vector<std::string> mapNames;
-    mapNames.reserve(RLMaps.size());
-    for (const auto& m : RLMaps)
+    mapNames.reserve(SuiteMaps.size());
+    for (const auto& m : SuiteMaps)
         mapNames.push_back(m.name);
 
     ImGui::AlignTextToFramePadding();
@@ -594,9 +594,9 @@ void SettingsUI::RenderFreeplayMode(std::string& currentFreeplayCode)
     ImGui::SameLine(0, 8);
     ImGui::SetNextItemWidth(UI::SettingsUI::FREEPLAY_MAPS_DROPDOWN_WIDTH);
     if (ImGui::SearchableCombo("##FreeplayMap", &currentIndex, mapNames, freeplayLabel, "Search maps...")) {
-        if (currentIndex >= 0 && currentIndex < (int)RLMaps.size()) {
-            currentFreeplayCode = RLMaps[currentIndex].code;
-            LOG("SuiteSpot UI: User selected Freeplay map: {} ({})", RLMaps[currentIndex].name, currentFreeplayCode);
+        if (currentIndex >= 0 && currentIndex < (int)SuiteMaps.size()) {
+            currentFreeplayCode = SuiteMaps[currentIndex].code;
+            LOG("SuiteSpot UI: User selected Freeplay map: {} ({})", SuiteMaps[currentIndex].name, currentFreeplayCode);
             plugin_->settingsSync->SetCurrentFreeplayCode(currentFreeplayCode);
             plugin_->cvarManager->getCvar("suitespot_current_freeplay_code").setValue(currentFreeplayCode);
         }
@@ -642,7 +642,7 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
     ImGui::Spacing();
 
     // Check if we have any maps
-    if (RLWorkshop.empty()) {
+    if (SuiteWorkshop.empty()) {
         ImGui::TextColored(UI::WorkshopBrowserUI::NO_MAPS_COLOR, "No workshop maps found.");
         ImGui::TextDisabled("Maps are discovered from:");
         ImGui::BulletText("WorkshopMapLoader configured path");
@@ -655,8 +655,8 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
 
     // Initialize selection from current CVar if needed
     if (selectedWorkshopIndex < 0 && !currentWorkshopPath.empty()) {
-        for (int i = 0; i < (int)RLWorkshop.size(); i++) {
-            if (RLWorkshop[i].filePath == currentWorkshopPath) {
+        for (int i = 0; i < (int)SuiteWorkshop.size(); i++) {
+            if (SuiteWorkshop[i].filePath == currentWorkshopPath) {
                 selectedWorkshopIndex = i;
                 break;
             }
@@ -664,8 +664,8 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
     }
 
     // Clamp selection to valid range
-    if (selectedWorkshopIndex >= (int)RLWorkshop.size()) {
-        selectedWorkshopIndex = (int)RLWorkshop.size() - 1;
+    if (selectedWorkshopIndex >= (int)SuiteWorkshop.size()) {
+        selectedWorkshopIndex = (int)SuiteWorkshop.size() - 1;
     }
 
     // Calculate panel widths
@@ -690,7 +690,7 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
 
         // Count visible maps for header
         int visibleCount = 0;
-        for (const auto& e : RLWorkshop) {
+        for (const auto& e : SuiteWorkshop) {
             if (filterStr.empty()) {
                 visibleCount++;
                 continue;
@@ -699,11 +699,11 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
             std::transform(nl.begin(), nl.end(), nl.begin(), ::tolower);
             if (nl.find(filterStr) != std::string::npos) visibleCount++;
         }
-        ImGui::TextDisabled(filterStr.empty() ? "%d maps" : "%d / %d maps", visibleCount, (int)RLWorkshop.size());
+        ImGui::TextDisabled(filterStr.empty() ? "%d maps" : "%d / %d maps", visibleCount, (int)SuiteWorkshop.size());
         ImGui::Separator();
 
-        for (int i = 0; i < (int)RLWorkshop.size(); i++) {
-            const auto& entry = RLWorkshop[i];
+        for (int i = 0; i < (int)SuiteWorkshop.size(); i++) {
+            const auto& entry = SuiteWorkshop[i];
 
             // Apply filter
             if (!filterStr.empty()) {
@@ -784,8 +784,8 @@ void SettingsUI::RenderInstalledMaps(std::string& currentWorkshopPath)
 
     // === RIGHT PANEL: Details Pane ===
     if (ImGui::BeginChild("WorkshopMapDetails", ImVec2(rightWidth, UI::WorkshopBrowserUI::BROWSER_HEIGHT), true)) {
-        if (selectedWorkshopIndex >= 0 && selectedWorkshopIndex < (int)RLWorkshop.size()) {
-            auto& selectedMap = RLWorkshop[selectedWorkshopIndex];
+        if (selectedWorkshopIndex >= 0 && selectedWorkshopIndex < (int)SuiteWorkshop.size()) {
+            auto& selectedMap = SuiteWorkshop[selectedWorkshopIndex];
 
             // Load preview image if needed (lazy loading)
             if (!selectedMap.previewPath.empty() && !selectedMap.isImageLoaded && !selectedMap.previewImage) {
@@ -955,7 +955,7 @@ void SettingsUI::RenderSinglePackMode(std::string& currentTrainingCode)
 
     // Helper: resolve TrainingEntry* by code
     auto resolveEntry = [&](const std::string& code) -> const TrainingEntry* {
-        const auto& packs = plugin_->trainingPackMgr ? plugin_->trainingPackMgr->GetPacks() : RLTraining;
+        const auto& packs = plugin_->trainingPackMgr ? plugin_->trainingPackMgr->GetPacks() : SuiteTraining;
         auto it = std::find_if(packs.begin(), packs.end(), [&](const TrainingEntry& e) { return e.code == code; });
         if (it != packs.end()) return &(*it);
         return nullptr;

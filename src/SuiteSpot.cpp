@@ -76,7 +76,7 @@ std::filesystem::path SuiteSpot::ResolveConfiguredWorkshopRoot() const
 void SuiteSpot::DiscoverWorkshopInDir(const std::filesystem::path& dir)
 {
     if (mapManager) {
-        mapManager->DiscoverWorkshopInDir(dir, RLWorkshop);
+        mapManager->DiscoverWorkshopInDir(dir, SuiteWorkshop);
     }
 }
 
@@ -85,7 +85,7 @@ void SuiteSpot::LoadWorkshopMaps()
     if (mapManager) {
         // Load workshop maps without passing an index - the path-based selection persists automatically
         int unused = 0;
-        mapManager->LoadWorkshopMaps(RLWorkshop, unused);
+        mapManager->LoadWorkshopMaps(SuiteWorkshop, unused);
     }
 }
 
@@ -389,7 +389,7 @@ void SuiteSpot::GameEndedEvent(std::string name)
     if (autoLoadFeature && settingsSync) {
         LOG("SuiteSpot: Triggering AutoLoadFeature::OnMatchEnded");
 
-        autoLoadFeature->OnMatchEnded(gameWrapper, cvarManager, RLMaps, RLTraining, RLWorkshop, *settingsSync,
+        autoLoadFeature->OnMatchEnded(gameWrapper, cvarManager, SuiteMaps, SuiteTraining, SuiteWorkshop, *settingsSync,
                                       usageTracker.get());
 
         // Usage tracking handled by AutoLoadFeature::OnMatchEnded

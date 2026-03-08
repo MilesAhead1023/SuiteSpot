@@ -12,8 +12,7 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
                                    std::shared_ptr<CVarManagerWrapper> cvarManager,
                                    const std::vector<MapEntry>& freeplayMaps,
                                    const std::vector<TrainingEntry>& trainingPacks,
-                                   const std::vector<WorkshopEntry>& workshopMaps,
-                                   SettingsSync& settings,
+                                   const std::vector<WorkshopEntry>& workshopMaps, SettingsSync& settings,
                                    PackUsageTracker* usageTracker)
 {
     if (!gameWrapper || !cvarManager) return;
@@ -34,12 +33,8 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
         // Even if the user sets 0s, we want to force a context switch out of the event stack.
         float actualDelay = (delaySec <= 0) ? 0.1f : static_cast<float>(delaySec);
 
-        gameWrapper->SetTimeout([cvarManager, cmd](GameWrapper* gw) {
-            cvarManager->executeCommand(cmd);
-        }, actualDelay);
+        gameWrapper->SetTimeout([cvarManager, cmd](GameWrapper* gw) { cvarManager->executeCommand(cmd); }, actualDelay);
     };
-
-    int mapLoadDelay = 0;
 
     if (mapType == 0) { // Freeplay
         if (currentFreeplayCode.empty()) {
@@ -47,14 +42,13 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
         } else {
             // Verify the map code exists in the list
             auto it = std::find_if(freeplayMaps.begin(), freeplayMaps.end(),
-                [&](const MapEntry& e) { return e.code == currentFreeplayCode; });
+                                   [&](const MapEntry& e) { return e.code == currentFreeplayCode; });
             if (it != freeplayMaps.end()) {
                 safeExecute(delayFreeplaySec, "load_freeplay " + currentFreeplayCode);
-                mapLoadDelay = delayFreeplaySec;
                 LOG("SuiteSpot: [OK] Loading freeplay map: {}", it->name);
             } else {
-                LOG("SuiteSpot: [ERR] Freeplay map '{}' not found. Available maps: {}",
-                    currentFreeplayCode, freeplayMaps.size());
+                LOG("SuiteSpot: [ERR] Freeplay map '{}' not found. Available maps: {}", currentFreeplayCode,
+                    freeplayMaps.size());
             }
         }
     } else if (mapType == 1) { // Training
@@ -63,7 +57,7 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
 
         // Single Pack Mode: use quick picks selection
         std::string targetCode = settings.GetQuickPicksSelectedCode();
-        
+
         // If empty, try fallback to current training code (legacy)
         if (targetCode.empty()) targetCode = settings.GetCurrentTrainingCode();
 
@@ -75,7 +69,7 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
 
             // Try to find name in cache for logging, but don't require it
             auto it = std::find_if(trainingPacks.begin(), trainingPacks.end(),
-                [&](const TrainingEntry& e) { return e.code == targetCode; });
+                                   [&](const TrainingEntry& e) { return e.code == targetCode; });
             if (it != trainingPacks.end()) {
                 nameToLoad = it->name;
             } else {
@@ -89,16 +83,17 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
             if (usageTracker && !usageTracker->IsFirstRun()) {
                 quickPicks = usageTracker->GetTopUsedCodes(settings.GetQuickPicksCount());
             }
-            
+
             if (quickPicks.empty()) {
-                for(const auto& p : DefaultPacks::FLICKS_PICKS) quickPicks.push_back(p.code);
+                for (const auto& p : DefaultPacks::FLICKS_PICKS)
+                    quickPicks.push_back(p.code);
             }
 
             if (!quickPicks.empty()) {
                 std::string fallbackCode = quickPicks[0];
                 auto it = std::find_if(trainingPacks.begin(), trainingPacks.end(),
-                    [&](const TrainingEntry& e) { return e.code == fallbackCode; });
-                
+                                       [&](const TrainingEntry& e) { return e.code == fallbackCode; });
+
                 codeToLoad = fallbackCode;
                 nameToLoad = (it != trainingPacks.end()) ? it->name : "Quick Pick Fallback";
                 LOG("SuiteSpot: Selected pack missing, falling back to first Quick Pick: {}", nameToLoad);
@@ -112,7 +107,6 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
             }
 
             safeExecute(delayTrainingSec, "load_training " + codeToLoad);
-            mapLoadDelay = delayTrainingSec;
             LOG("SuiteSpot: Loading training pack: " + nameToLoad);
         } else {
             LOG("SuiteSpot: No training pack to load.");
@@ -124,10 +118,9 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
         } else {
             // Verify the workshop map exists in the list
             auto it = std::find_if(workshopMaps.begin(), workshopMaps.end(),
-                [&](const WorkshopEntry& e) { return e.filePath == currentWorkshopPath; });
+                                   [&](const WorkshopEntry& e) { return e.filePath == currentWorkshopPath; });
             if (it != workshopMaps.end()) {
                 safeExecute(delayWorkshopSec, "load_workshop \"" + currentWorkshopPath + "\"");
-                mapLoadDelay = delayWorkshopSec;
                 LOG("SuiteSpot: [OK] Loading workshop map: {}", it->name);
             } else {
                 LOG("SuiteSpot: [ERR] Workshop map not found: {}", currentWorkshopPath);

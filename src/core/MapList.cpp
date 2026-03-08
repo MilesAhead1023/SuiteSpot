@@ -6,15 +6,14 @@
 // indices and never mutates them except through explicit add/refresh
 // operations which then call Save/Load helpers.
 //
-// DO NOT RENAME OR REMOVE entries in RLMaps: the string values (map codes and
+// DO NOT RENAME OR REMOVE entries in SuiteMaps: the string values (map codes and
 // display names) are referenced by CVar persistence and user-visible labels.
-// RLTraining and RLWorkshop are intentionally empty here — they are populated
+// SuiteTraining and SuiteWorkshop are intentionally empty here — they are populated
 // at runtime by LoadPacksFromFile() and LoadWorkshopMaps() respectively.
 #include "pch.h"
 #include "MapList.h"
-#include "SuiteSpot.h"
 
-std::vector<MapEntry> RLMaps = {
+std::vector<MapEntry> SuiteMaps = {
     {"Underwater_P", "AquaDome"},
     {"Underwater_GRS_P", "AquaDome (Salty Shallows)"},
     {"Park_P", "Beckwith Park"},
@@ -92,6 +91,6 @@ std::vector<MapEntry> RLMaps = {
 
 };
 
-std::vector<TrainingEntry> RLTraining = {};
+std::vector<TrainingEntry> SuiteTraining = {};
 
-std::vector<WorkshopEntry> RLWorkshop = {};
+std::vector<WorkshopEntry> SuiteWorkshop = {};
