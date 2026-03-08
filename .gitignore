@@ -475,6 +475,9 @@ package-lock.json
 # Windows null device (shows as untracked on Windows)
 nul
 
+# Built release archives
+SuiteSpot.zip
+
 # Doxygen generated output
 docs/doxygen/
 
