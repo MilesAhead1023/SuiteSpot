@@ -1,162 +1,307 @@
-# CLAUDE.md
+# CLAUDE.md — SuiteSpot Project Reference
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## What This Project Is
+
+SuiteSpot is a BakkesMod plugin for Rocket League. When a match ends, it automatically loads training content — a training pack, a freeplay map, or a workshop map — so the player doesn't have to navigate menus manually. It is a C++20 Windows x64 DLL, version 1.0.0.867.
 
 ---
 
-## Project Overview
+## Build
 
-SuiteSpot is a BakkesMod plugin for Rocket League that automatically loads training content (training packs, freeplay maps, or workshop maps) after matches end. It's a C++20 Windows x64 DLL that integrates with BakkesMod's SDK.
-
-## Build System — Two Separate Pipelines
-
-There are two completely independent build pipelines. They must never be mixed.
-
-| | Local build | CI build (GitHub Actions) |
-|---|---|---|
-| **Where** | Developer machine | GitHub runner (`D:\a\...`) |
-| **Trigger** | Manual | Push / PR to any branch |
-| **BakkesMod SDK** | `%AppData%\bakkesmod\bakkesmod\bakkesmodsdk` via registry | Cloned into `bakkesmodsdk/` at build time |
-| **vcpkg** | `%VCPKG_ROOT%` env var (local install, triplet: `x64-windows-static`) | Cloned and bootstrapped fresh each run |
-| **Post-build** | Hot-reloads plugin into live BakkesMod | No — artifact uploaded only |
-| **Intermediates** | `build\.intermediates\` | Same, but discarded after run |
-| **Output** | `plugins\SuiteSpot.dll` → copied to `%AppData%\bakkesmod` | Uploaded as GitHub Actions artifact |
-
-**Key isolation rules:**
-- `bakkesmodsdk/` is gitignored — CI clones it fresh, local uses the registry path
-- `vcpkg_installed/` is gitignored — each environment manages its own package cache
-- `build/` intermediates are gitignored — never shared between environments
-- `plugins/*.dll` is gitignored — local output never committed
-
-### Local build (from Windows PowerShell)
+**Local build (from PowerShell):**
 ```powershell
 & 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe' SuiteSpot.sln /p:Configuration=Release /p:Platform=x64 /v:minimal
 ```
 
-**CI build (clones BakkesMod SDK):**
-```bash
-git clone --depth 1 https://github.com/bakkesmodorg/BakkesModSDK.git bakkesmodsdk
-cd bakkesmodsdk && git checkout 479e8f571cf554b25f4eeb64d611dec4133edcaf && cd ..
-msbuild /m /p:Configuration=Release /p:BakkesModPath="." SuiteSpot.sln
+- Output DLL: `plugins\SuiteSpot.dll`
+- Post-build auto-copies DLL + all assets to `%AppData%\bakkesmod\bakkesmod\` and patches the DLL
+- If Rocket League is running, the plugin hot-reloads automatically
+- **Hot-reload crash rule:** never call `LoadFont` or modify the ImGui atlas inside a render path or directly in `SetImGuiContext` — always defer via `gameWrapper->Execute()`
+
+**vcpkg:** Manifest mode. `vcpkg.json` defines dependencies; packages install into `vcpkg_installed\x64-windows-static\` (gitignored).
+
+**Dependencies:** `sqlite3`, `spdlog`, `fmt`, `nlohmann-json`, `openssl`, `ixwebsocket`
+
+**CI build:** GitHub Actions — clones BakkesMod SDK fresh, runs MSBuild, uploads artifact. Never mixes with local paths.
+
+---
+
+## Architecture — Hub-and-Spoke
+
+`src/SuiteSpot.cpp` is the Hub. Everything routes through it. Components never talk to each other directly.
+
+```
+SuiteSpot (Hub)
+├── core/AutoLoadFeature      Post-match automation — decides what to load and when
+├── core/SettingsSync         All CVars — registration, storage, callbacks
+├── core/MapManager           Workshop map discovery, path resolution, hotkey cycling
+├── core/TrainingPackManager  2300+ pack JSON database — load, search, filter
+├── core/WorkshopDownloader   HTTP downloads from bakkesplugins.com API
+├── core/LoadoutManager       Car preset switching via game thread
+├── core/PackUsageTracker     Per-pack load counts + timestamps → favorites ranking
+├── core/TextureDownloader    Downloads 14 .upk workshop editor textures on first run
+└── ui/
+    ├── SettingsUI            F2 settings tab (General, Map Selection, Loadout, Hotkeys)
+    ├── TrainingPackUI        Floating pack browser window (PluginWindow, two-panel)
+    ├── LoadoutUI             Car preset panel (renders inside SettingsUI)
+    └── StatusMessageUI       Reusable toast notifications (Timer / TimerWithFade / ManualDismiss)
 ```
 
-For local development, the BakkesMod SDK path is configured in `BakkesMod.props`. The post-build step copies the DLL and resources to the BakkesMod plugins folder and patches it with `bakkesmod-patch.exe`. If Rocket League is running, the post-build hot-reloads the plugin (unload → copy → load). **Hot-reload crashes** can occur if the plugin modifies shared resources (font atlas, textures) during reload — always use `gameWrapper->Execute()` to defer such operations.
+**SuiteSpot inherits from three base classes:**
+- `BakkesModPlugin` — required plugin entry point
+- `PluginSettingsWindow` (via `SettingsWindowBase`) — renders the F2 settings tab
+- `PluginWindow` — manages the floating pack browser window
 
-## Architecture
+`SettingsUI`, `TrainingPackUI`, and `LoadoutUI` are all `friend` classes — they can access private Hub members directly.
 
-The project uses a **Hub-and-Spoke** pattern where `src/SuiteSpot.cpp` (the Hub class) orchestrates all functionality:
+---
 
-```
-src/SuiteSpot.cpp (Hub)
-├── src/core/AutoLoadFeature     - Post-match automation (Freeplay/Training/Workshop)
-├── src/core/SettingsSync        - CVar-backed settings management
-├── src/core/MapManager          - Workshop map discovery and paths
-├── src/core/TrainingPackManager - 2300+ pack database with search/filter
-├── src/core/WorkshopDownloader  - RLMAPS API integration for downloads
-├── src/core/LoadoutManager      - Car preset management
-├── src/core/PackUsageTracker    - Usage statistics for favorites
-├── src/core/TextureDownloader   - Auto-downloads 14 workshop editor textures
-└── UI Components
-    ├── src/ui/SettingsUI        - F2 menu (tabs: Map Select, Loadout, Workshop)
-    ├── src/ui/TrainingPackUI    - Floating pack browser window (PluginWindow)
-    ├── src/ui/LoadoutUI         - Car preset selection panel
-    └── src/ui/StatusMessageUI  - Toast notifications (Timer/Fade/ManualDismiss)
-```
+## Data Structures (`src/core/MapList.h`)
 
-Components don't communicate directly—all coordination flows through the Hub.
+Three global vectors. Defined in `MapList.cpp`, declared extern in `MapList.h`.
 
-## Key Source Files
-
-| File | Purpose |
-|------|---------|
-| `src/SuiteSpot.cpp/.h` | Plugin entry point, lifecycle management, event routing |
-| `src/core/AutoLoadFeature.cpp/.h` | Core match-end automation with delay scheduling |
-| `src/core/SettingsSync.cpp/.h` | CVars (prefixed `suitespot_*`) with change callbacks |
-| `src/core/TrainingPackManager.cpp/.h` | JSON database operations, search, filtering |
-| `src/core/WorkshopDownloader.cpp/.h` | HTTP requests to RLMAPS API, thread-safe downloads |
-| `src/core/TextureDownloader.cpp/.h` | Background download of 14 workshop editor textures |
-| `src/core/PackUsageTracker.cpp/.h` | Load counts + timestamps, powers favorites ranking |
-| `src/core/LoadoutManager.cpp/.h` | Car preset switching via game-thread Execute() |
-| `src/core/MapList.h` | Data structures: `MapEntry`, `TrainingEntry`, `WorkshopEntry` |
-| `src/core/DefaultPacks.h` | Curated "Flicks Picks" default training pack list |
-| `src/ui/SettingsUI.cpp/.h` | F2 settings menu (Map Select, Loadout, Workshop tabs) |
-| `src/ui/TrainingPackUI.cpp/.h` | Floating pack browser PluginWindow |
-| `src/ui/LoadoutUI.cpp/.h` | Car preset selection panel |
-| `src/ui/StatusMessageUI.cpp/.h` | Reusable toast notification system |
-| `src/ui/ConstantsUI.h` | All UI styling constants (colors, sizes, spacing) |
-| `src/ui/HelpersUI.cpp/.h` | ImGui helper widgets (InputIntWithRange, ComboWithTooltip, etc.) |
-| `src/utils/logging.h` | spdlog-based logging macros |
-| `src/utils/ProcessUtils.h` | Process/path utilities |
-
-## Technical Patterns
-
-**Thread Safety:** WorkshopDownloader and TrainingPackManager use mutexes. Downloads run in background threads to avoid blocking the game. WorkshopDownloader uses `weak_ptr` + generation tracking to safely handle async HTTP callbacks — always check `searchGeneration` matches before touching shared state.
-
-**Game Thread Safety:** Use `gameWrapper->Execute()` to defer operations to the game thread between frames. Use `gameWrapper->SetTimeout()` for delayed execution. Both patterns prevent crashes from modifying shared state (font atlas, game wrappers) during rendering. See `LoadoutManager.cpp` for the canonical `Execute()` pattern.
-
-**Delayed Execution:** Uses `gameWrapper->SetTimeout()` to schedule commands after match-end. Minimum 0.1s delay prevents crashes during game state transitions.
-
-**Settings Persistence:** All settings use BakkesMod CVars with `.addOnValueChanged()` callbacks for immediate sync. CVars auto-persist to `config.cfg`.
-
-**UI Framework:** ImGui 1.75 with DirectX 11 backend. Vendor + extension widgets in `external/imgui/` (range sliders, searchable combos, timeline).
-
-### Font Loading (CRITICAL — crashes if done wrong)
-
-BakkesMod provides `GUIManager::LoadFont()` to load fonts into the ImGui atlas. **`LoadFont` triggers an atlas rebuild that will crash the game if called during rendering or hot-reload.**
-
-**Safe pattern (used in `SuiteSpot.cpp` SetImGuiContext):**
 ```cpp
-// 1. Try GetFont first — font survives hot-reload in the atlas
-clockFont = gui.GetFont("suitespot_clock_48");
-// 2. Only LoadFont on cold start, deferred to game thread via Execute()
+struct MapEntry     { string code; string name; };
+struct TrainingEntry { string code; string name; string creator; string difficulty;
+                       vector<string> tags; int shotCount; string videoUrl; string gifUrl;
+                       int likes; int plays; string source; bool isModified;
+                       shared_ptr<ImageWrapper> thumbnailImage; };
+struct WorkshopEntry { string filePath; string name; string author; string description;
+                       path folder; path previewPath; shared_ptr<ImageWrapper> previewImage; };
+
+extern vector<MapEntry>     SuiteMaps;      // Freeplay maps (statically defined)
+extern vector<TrainingEntry> SuiteTraining; // ALWAYS EMPTY GLOBAL — use TrainingPackManager::GetPacks()
+extern vector<WorkshopEntry> SuiteWorkshop; // Populated by MapManager::LoadWorkshopMaps()
+```
+
+**Important:** `SuiteTraining` (global) is never populated. Training packs live in `TrainingPackManager`'s private `SuiteTraining` member. Always use `trainingPackMgr->GetPacks()` to get the real list.
+
+---
+
+## Key Private Members of SuiteSpot (SuiteSpot.h)
+
+```cpp
+unique_ptr<MapManager>          mapManager
+unique_ptr<SettingsSync>        settingsSync
+unique_ptr<AutoLoadFeature>     autoLoadFeature
+unique_ptr<TrainingPackManager> trainingPackMgr      // NOTE: not trainingPackManager
+unique_ptr<LoadoutManager>      loadoutManager
+unique_ptr<PackUsageTracker>    usageTracker
+shared_ptr<WorkshopDownloader>  workshopDownloader
+unique_ptr<TextureDownloader>   textureDownloader
+shared_ptr<TrainingPackUI>      trainingPackUI
+unique_ptr<SettingsUI>          settingsUI
+unique_ptr<LoadoutUI>           loadoutUI
+
+ImFont* clockFont   // Ubuntu-Regular.ttf at 48px — used for in-game clock display
+ImFont* uiFont      // Roboto-Medium.ttf 14px + fa-solid-900.ttf icons merged in
+
+bool isBrowserOpen
+set<string> heldKeys        // Tracks currently held keys for combo hotkeys
+int captureRow, captureSlot // Hotkey capture state
+```
+
+---
+
+## Post-Match Loading Flow (AutoLoadFeature)
+
+Called by `SuiteSpot::GameEndedEvent` → `autoLoadFeature->OnMatchEnded(...)`.
+
+The Hub passes everything AutoLoadFeature needs as parameters: `freeplayMaps`, `trainingPacks` (from `trainingPackMgr->GetPacks()`), `workshopMaps`, `settings`, `usageTracker`.
+
+**Decision tree:**
+1. If disabled → return
+2. If `mapType == 0` (Freeplay): verify `currentFreeplayCode` is in `SuiteMaps`, then `safeExecute(delay, "load_freeplay <code>")`
+3. If `mapType == 1` (Training):
+   - Try `QuickPicksSelectedCode` first
+   - Fallback to `currentTrainingCode`
+   - Fallback to first QuickPick from `usageTracker->GetTopUsedCodes(n)`
+   - Final fallback to `DefaultPacks::FLICKS_PICKS[0]`
+   - Calls `usageTracker->IncrementLoadCount(code)` before loading
+   - Executes `"load_training <code>"`
+4. If `mapType == 2` (Workshop): verify path in `SuiteWorkshop`, then `"load_workshop \"<path>\""`
+5. If `autoQueue` is on: also `safeExecute(delayQueueSec, "queue")`
+
+**`safeExecute` enforces minimum 0.1s delay** even when user sets 0s — prevents crashes during game state transitions.
+
+---
+
+## All CVars (`suitespot_*` prefix)
+
+| CVar | Default | Description |
+|------|---------|-------------|
+| `suitespot_enabled` | 0 | Master on/off switch |
+| `suitespot_map_type` | 0 | 0=Freeplay, 1=Training, 2=Workshop |
+| `suitespot_auto_queue` | 0 | Auto-queue after map load |
+| `suitespot_fix_training_gamespeed` | 1 | Sync game speed in training playlists |
+| `suitespot_quickpicks_list_type` | 0 | 0=Flicks Picks, 1=Your Favorites |
+| `suitespot_quickpicks_count` | 10 | Number of quick picks (5–15) |
+| `suitespot_quickpicks_selected` | "" | Selected quick pick pack code |
+| `suitespot_delay_queue_sec` | 0 | Delay before queueing (0–300s) |
+| `suitespot_delay_freeplay_sec` | 0 | Delay before freeplay load (0–300s) |
+| `suitespot_delay_training_sec` | 0 | Delay before training load (0–300s) |
+| `suitespot_delay_workshop_sec` | 0 | Delay before workshop load (0–300s) |
+| `suitespot_current_freeplay_code` | "" | Selected freeplay map code |
+| `suitespot_current_training_code` | "" | Selected training pack code |
+| `suitespot_current_workshop_path` | "" | Selected workshop map file path |
+| `ss_training_maps` | "" | Legacy stored training maps (not persisted) |
+| `suitespot_hotkey_map_mode_fwd_key` | "" | Cycle mode forward — trigger key |
+| `suitespot_hotkey_map_mode_fwd_key2` | "" | Cycle mode forward — held key |
+| `suitespot_hotkey_map_mode_bk_key` | "" | Cycle mode backward — trigger key |
+| `suitespot_hotkey_map_mode_bk_key2` | "" | Cycle mode backward — held key |
+| `suitespot_hotkey_cycle_map_fwd_key` | "" | Cycle map forward — trigger key |
+| `suitespot_hotkey_cycle_map_fwd_key2` | "" | Cycle map forward — held key |
+| `suitespot_hotkey_cycle_map_bk_key` | "" | Cycle map backward — trigger key |
+| `suitespot_hotkey_cycle_map_bk_key2` | "" | Cycle map backward — held key |
+| `suitespot_hotkey_load_now_key` | "" | Load current map immediately — trigger key |
+| `suitespot_hotkey_load_now_key2` | "" | Load now — held key |
+
+All CVars auto-persist via BakkesMod's `config.cfg`.
+
+---
+
+## Hotkey System
+
+Dual-key combo required for every action. Key1 = the key you press; Key2 = the key you must be holding at the same time. Both must be non-empty or the hotkey does nothing.
+
+Hook: `TAGame.GameViewportClient_TA.HandleKeyPress` — fires on every keypress in-game. SuiteSpot maintains a `set<string> heldKeys` to track which keys are currently held.
+
+**5 hotkey actions:**
+- **Cycle Mode Forward/Back** — rotates between Freeplay → Training → Workshop modes. Shows a toast.
+- **Cycle Map Forward/Back** — advances the selection within the current mode. Shows a toast with the map name. Uses `trainingPackMgr->GetPacks()` for training (not the global).
+- **Load Now** — immediately executes the current selection without waiting for a match to end.
+
+Keys are UE3 strings (e.g., `"J"`, `"F3"`, `"LeftAlt"`, `"XboxTypeS_DPad_Up"`).
+
+---
+
+## Thread Safety Rules
+
+| Component | Pattern | Notes |
+|-----------|---------|-------|
+| `TrainingPackManager` | `packMutex` | Protects internal `SuiteTraining` vector |
+| `LoadoutManager` | `cacheMutex_` + `gameWrapper->Execute()` | All loadout ops deferred to game thread |
+| `WorkshopDownloader` | `resultsMutex` + `searchGeneration` counter | Generation tracking cancels stale HTTP callbacks |
+| `PackUsageTracker` | `mutex_` | Protects stats map |
+| Font loading | `gameWrapper->Execute()` | Atlas rebuild must happen between game frames |
+| Delayed execution | `gameWrapper->SetTimeout()` | Minimum 0.1s enforced in `safeExecute` |
+
+**Never** modify the ImGui atlas, font data, or game wrappers from a non-game thread or during rendering.
+
+---
+
+## Font Loading (Crash-Sensitive)
+
+Two fonts are loaded at plugin startup via `SetImGuiContext`:
+
+**Clock font** (`clockFont`): `Ubuntu-Regular.ttf` at 48px, named `"suitespot_clock_48"`. Lives in `%AppData%\bakkesmod\bakkesmod\data\fonts\` — NOT in the plugin's assets folder.
+
+**UI font** (`uiFont`): `Roboto-Medium.ttf` at 14px, named `"suitespot_roboto_14"`. Font Awesome 5 Solid icons (`fa-solid-900.ttf`) are merged into it at the same size (glyph range `0xF000–0xF8D9`). Both files are in `assets/fonts/` and deployed by post-build.
+
+**Safe loading pattern — always follow this exactly:**
+```cpp
+clockFont = gui.GetFont("suitespot_clock_48"); // try atlas first (hot-reload safe)
 if (!clockFont) {
     gameWrapper->Execute([this](GameWrapper* gw) {
+        if (clockFont) return; // guard against duplicate Execute callbacks
         auto gui = gw->GetGUIManager();
-        auto [res, font] = gui.LoadFont("name", "font.ttf", 48);
+        auto [res, font] = gui.LoadFont("suitespot_clock_48", "Ubuntu-Regular.ttf", 48);
         if (res == 2 && font) clockFont = font;
     });
 }
 ```
-
-**Rules:**
-- NEVER call `LoadFont` inside a render function
-- NEVER call `LoadFont` directly in `SetImGuiContext` — wrap in `Execute()`
-- Always try `GetFont` first — it returns the existing font without rebuilding
-- Font files live in `bakkesmod/data/fonts/` (currently: `Ubuntu-Regular.ttf`)
 - `LoadFont` returns: 0=failed, 1=queued, 2=loaded
-- Use `GetFont` in the render path to lazily resolve async-loaded fonts
+- Always `GetFont` first — returns existing atlas font without a rebuild
+- `LoadFont` triggers atlas rebuild — if called during rendering the game crashes
 
-### ImGui Layout Tips
+---
 
-- **Overlay text without affecting layout:** Use `ImDrawList::AddText(font, fontSize, pos, color, text)` — draws directly, doesn't touch ImGui's cursor or layout flow.
-- **DO NOT** use `SetCursorPos` to move the cursor backward for overlapping elements — it breaks layout for all subsequent items.
-- **Font scaling produces blurry text.** Both `SetWindowFontScale` and `AddText` with scaled `fontSize` stretch the bitmap atlas. For crisp large text, load a font at the target pixel size via `LoadFont`.
-- `GetItemRectMin()`/`GetItemRectSize()` after `EndGroup()` gives the group's bounding box for positioning overlays.
+## ImGui Layout Rules
 
-## Data Locations
+- **Overlay text without layout impact:** use `ImDrawList::AddText(font, size, pos, color, text)` — draws directly, doesn't touch ImGui cursor
+- **Never use `SetCursorPos` to move backward** — breaks layout for all subsequent items
+- **Font scaling (`SetWindowFontScale`) blurs text** — load fonts at the target pixel size instead
+- `GetItemRectMin()` + `GetItemRectSize()` after `EndGroup()` gives bounding box for overlay positioning
+
+---
+
+## Data Locations at Runtime
 
 ```
 %APPDATA%\bakkesmod\bakkesmod\
 ├── plugins\SuiteSpot.dll
 ├── data\
-│   ├── SuiteSpot\TrainingSuite\
-│   │   ├── training_packs.json    (2300+ packs, 2.6MB)
-│   │   └── pack_usage_stats.json  (user history)
-│   └── fonts\Ubuntu-Regular.ttf   (clock display font, 48px)
-└── cfg\config.cfg                 (CVars/settings)
+│   ├── SuiteSpot\
+│   │   ├── TrainingSuite\
+│   │   │   ├── training_packs.json   (2300+ packs, 2.6MB, deployed by post-build)
+│   │   │   └── pack_usage_stats.json (per-user load history, created at runtime)
+│   │   ├── Workshop\
+│   │   │   └── NoPreview.jpg         (fallback image for maps without preview)
+│   │   └── Resources\
+│   │       └── Icons\icon_youtube.png
+│   └── fonts\
+│       ├── Ubuntu-Regular.ttf        (clock font — must exist or clock won't load)
+│       └── (Roboto-Medium.ttf + fa-solid-900.ttf deployed here by post-build)
+└── cfg\config.cfg                    (all CVars persisted here automatically)
 ```
 
-## External Dependencies
+---
 
-- **BakkesMod SDK:** Game hooks, CVars, ImGui integration
-- **nlohmann/json:** JSON parsing (`json.hpp`)
-- **RLMAPS API:** `https://celab.jetfox.ovh/api/v4/projects/` for workshop map search/download
-- **PowerShell:** Used for ZIP extraction and training pack database updates
+## Key Source Files
 
-## CVar Naming Convention
+| File | Role |
+|------|------|
+| `src/SuiteSpot.cpp/.h` | Hub: lifecycle, event routing, hotkey handling, font loading |
+| `src/core/AutoLoadFeature.cpp/.h` | Post-match decision engine — what to load, when |
+| `src/core/SettingsSync.cpp/.h` | All CVar registration and callback wiring |
+| `src/core/MapManager.cpp/.h` | Workshop discovery, path resolution, hotkey index cycling |
+| `src/core/MapList.h` | `MapEntry`, `TrainingEntry`, `WorkshopEntry` structs + extern globals |
+| `src/core/TrainingPackManager.cpp/.h` | JSON load/search/filter, CRUD for custom packs |
+| `src/core/WorkshopDownloader.cpp/.h` | HTTP API client — bakkesplugins.com workshop search + download |
+| `src/core/LoadoutManager.cpp/.h` | Car preset cache + game-thread switching |
+| `src/core/PackUsageTracker.cpp/.h` | Load count + timestamp tracking → favorites |
+| `src/core/TextureDownloader.cpp/.h` | One-time download of 14 .upk workshop textures |
+| `src/core/DefaultPacks.h` | `FLICKS_PICKS` curated default training pack list |
+| `src/ui/SettingsUI.cpp/.h` | F2 tab: General, Map Selection, Loadout, Hotkeys |
+| `src/ui/TrainingPackUI.cpp/.h` | Floating two-panel pack browser PluginWindow |
+| `src/ui/LoadoutUI.cpp/.h` | Car preset selection panel |
+| `src/ui/StatusMessageUI.cpp/.h` | Reusable toast notifications |
+| `src/ui/ConstantsUI.h` | All UI sizes, colors, layout constants |
+| `src/ui/HelpersUI.cpp/.h` | ImGui helper widgets (InputIntWithRange, ComboWithTooltip) |
+| `src/ui/SuiteSpotIcons.h` | Font Awesome icon definitions (UTF-8 encoded glyph macros) |
+| `src/utils/logging.h` | `LOG(...)` macro — spdlog wrapper |
 
-All CVars use `suitespot_` prefix: `suitespot_enabled`, `suitespot_map_type`, `suitespot_delay_queue`, etc.
+---
 
-## Related Projects
+## Naming Conventions
 
-**BakkesMod RAG Documentation System:** For a Python-based RAG system to query BakkesMod SDK documentation, see the separate repository at [github.com/MilesAhead1023/BakkesMod-RAG-Documentation](https://github.com/MilesAhead1023/BakkesMod-RAG-Documentation). This tool was originally developed to assist with SuiteSpot development but is now maintained independently.
+- Classes: `CamelCase`
+- Functions: `CamelCase`
+- Variables: `camelCase`
+- Constants: defined in `ConstantsUI.h`, scoped under `UI::`, `UI::SettingsUI::`, etc.
+- CVars: all `suitespot_` prefix (one legacy `ss_training_maps`)
+- The Hub member for training packs is `trainingPackMgr` (NOT `trainingPackManager`)
+
+---
+
+## Things That Will Crash The Game
+
+1. Calling `LoadFont` during rendering or directly in `SetImGuiContext` (must use `Execute()`)
+2. Calling `LoadFont` when the font is already in the atlas (use `GetFont` first)
+3. Touching `gameWrapper` or game objects from a background thread (always use `Execute()`)
+4. Using `SetTimeout` with 0 delay during game state transitions (minimum 0.1s enforced in `safeExecute`)
+5. Hot-reload while the plugin is modifying the font atlas or textures
+
+---
+
+## Post-Build Steps (What Happens After Every Compile)
+
+1. Creates required BakkesMod data directories
+2. Copies `assets/icons/` → `data/SuiteSpot/Resources/Icons/`
+3. Copies `assets/images/` → `data/SuiteSpot/Resources/` (NoPreview.jpg)
+4. Copies `assets/images/NoPreview.jpg` → `data/SuiteSpot/Workshop/NoPreview.jpg` (second copy — this is the one the code reads)
+5. Copies `assets/data/training_packs.json` → `data/SuiteSpot/TrainingSuite/`
+6. Copies `assets/fonts/` → `data/fonts/`
+7. Copies `plugins/SuiteSpot.dll` → BakkesMod plugins folder
+8. Patches DLL with `bakkesmod-patch.exe`
+9. If Rocket League is running: hot-reloads the plugin

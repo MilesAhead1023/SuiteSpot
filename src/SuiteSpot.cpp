@@ -289,7 +289,7 @@ void SuiteSpot::LoadHooks()
                 cvarManager->getCvar("suitespot_map_type").setValue(newMode);
             } else if (check(settingsSync->GetHotkeyCycleMapFwdKey1(), settingsSync->GetHotkeyCycleMapFwdKey2())) {
                 LOG("Hotkey: cycle_map_fwd");
-                const auto& packs = trainingPackManager->GetPacks();
+                const auto& packs = trainingPackMgr->GetPacks();
                 mapManager->CycleMap(true, packs);
                 int mode = mapManager->GetCurrentMapModeIndex();
                 std::string mapName;
@@ -307,7 +307,7 @@ void SuiteSpot::LoadHooks()
                 gameWrapper->Toast("", "Map: " + mapName, "default", 3.5f, ToastType_Info);
             } else if (check(settingsSync->GetHotkeyCycleMapBkKey1(), settingsSync->GetHotkeyCycleMapBkKey2())) {
                 LOG("Hotkey: cycle_map_bk");
-                const auto& packs = trainingPackManager->GetPacks();
+                const auto& packs = trainingPackMgr->GetPacks();
                 mapManager->CycleMap(false, packs);
                 int mode = mapManager->GetCurrentMapModeIndex();
                 std::string mapName;
