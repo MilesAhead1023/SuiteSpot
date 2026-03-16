@@ -32,14 +32,16 @@ class PackUsageTracker;
 
 class AutoLoadFeature
 {
-public:
+  private:
+    std::atomic<bool> cancelPendingLoads{false};
+
+  public:
+    void CancelPendingLoads() { cancelPendingLoads = true; }
+
     // The main entry point. Called when the match ends.
     // It takes ALL the necessary data (settings, map lists) and decides what to do.
-    void OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
-        std::shared_ptr<CVarManagerWrapper> cvarManager,
-        const std::vector<MapEntry>& freeplayMaps,
-        const std::vector<TrainingEntry>& trainingPacks,
-        const std::vector<WorkshopEntry>& workshopMaps,
-        SettingsSync& settings,
-        PackUsageTracker* usageTracker);
+    void OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper, std::shared_ptr<CVarManagerWrapper> cvarManager,
+                      const std::vector<MapEntry>& freeplayMaps, const std::vector<TrainingEntry>& trainingPacks,
+                      const std::vector<WorkshopEntry>& workshopMaps, SettingsSync& settings,
+                      PackUsageTracker* usageTracker);
 };

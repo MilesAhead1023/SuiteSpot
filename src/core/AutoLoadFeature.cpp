@@ -18,6 +18,8 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
     if (!gameWrapper || !cvarManager) return;
     if (!settings.IsEnabled()) return;
 
+    cancelPendingLoads = false;
+
     const int mapType = settings.GetMapType();
     const int delayQueueSec = settings.GetDelayQueueSec();
     const int delayFreeplaySec = settings.GetDelayFreeplaySec();
@@ -33,7 +35,15 @@ void AutoLoadFeature::OnMatchEnded(std::shared_ptr<GameWrapper> gameWrapper,
         // Even if the user sets 0s, we want to force a context switch out of the event stack.
         float actualDelay = (delaySec <= 0) ? 0.1f : static_cast<float>(delaySec);
 
-        gameWrapper->SetTimeout([cvarManager, cmd](GameWrapper* gw) { cvarManager->executeCommand(cmd); }, actualDelay);
+        gameWrapper->SetTimeout(
+            [this, cvarManager, cmd](GameWrapper* gw) {
+                if (this->cancelPendingLoads) {
+                    LOG("SuiteSpot: Pending map load '{}' aborted due to Matchmaking join.", cmd);
+                    return;
+                }
+                cvarManager->executeCommand(cmd);
+            },
+            actualDelay);
     };
 
     if (mapType == 0) { // Freeplay

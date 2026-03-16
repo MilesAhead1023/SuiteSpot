@@ -235,6 +235,14 @@ void SuiteSpot::LoadHooks()
     gameWrapper->HookEventPost("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded",
                                [this](std::string eventName) { GameEndedEvent(eventName); });
 
+    // Cancel pending AutoLoads if the client begins joining a new match
+    gameWrapper->HookEvent("Function ProjectX.OnlineGameJoinGame_X.StartJoin", [this](std::string eventName) {
+        LOG("SuiteSpot: Matchmaking join started! Canceling pending map loads.");
+        if (autoLoadFeature) {
+            autoLoadFeature->CancelPendingLoads();
+        }
+    });
+
     // ===== PACK HEALER - Training Events =====
     // Based on BakkesMod SDK reference documentation
 
@@ -585,6 +593,7 @@ void SuiteSpot::onUnload()
 
     // STEP 3: Unhook all game events (CRITICAL - SDK requirement)
     gameWrapper->UnhookEventPost("Function TAGame.GameEvent_Soccar_TA.EventMatchEnded");
+    gameWrapper->UnhookEvent("Function ProjectX.OnlineGameJoinGame_X.StartJoin");
     gameWrapper->UnhookEventPost("Function TAGame.GameEvent_TrainingEditor_TA.OnInit");
     gameWrapper->UnhookEvent("Function TAGame.GameViewportClient_TA.HandleKeyPress");
     LOG("Event hooks removed");

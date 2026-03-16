@@ -225,6 +225,13 @@ if (!clockFont) {
 
 ---
 
+## Log Locations (Debugging)
+
+- **BakkesMod Logs:** `C:\Users\bmile\AppData\Roaming\bakkesmod\bakkesmod\bakkesmod.log`
+- **Rocket League Logs:** `%USERPROFILE%\Documents\My Games\Rocket League\TAGame\Logs\Launch.log`
+
+---
+
 ## Data Locations at Runtime
 
 ```
